@@ -36,7 +36,22 @@ jobs:
       - name: Сборка
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
+
+      - name: Ошибки сборки → комментарий к коммиту
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### ❌ Сборка не прошла"
+            echo '```'
+            grep -E "^e: |error:|What went wrong|FAILURE|Execution failed|AAPT|resource .* not found" -A4 build.log | head -150
+            echo '```'
+          } > report.md
+          gh api repos/${{ github.repository }}/commits/${{ github.sha }}/comments -F body=@report.md || true
 
       - name: Имя файла
         id: apk

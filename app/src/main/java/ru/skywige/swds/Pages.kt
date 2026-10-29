@@ -226,8 +226,8 @@ object Bridge {
         a.optString("server").trim().takeIf { it.isNotEmpty() }?.let {
             var s = it.trimEnd('/')
             if (!s.startsWith("http://") && !s.startsWith("https://")) s = "http://$s"
-            if (!Regex(":\\d+$").containsMatchIn(s.substringAfter("://")) && s.startsWith("http://")) urls.add("$s:8080")
-            urls.add(0, s)
+            if (!Regex(":\\d+$").containsMatchIn(s.substringAfter("://")) && s.startsWith("http://")) urls.add(0, "$s:7979")
+            urls.add(if (urls.isNotEmpty() && urls[0].endsWith(":7979")) 1 else 0, s)
         }
         if (code.length != 6) return JSONObject().put("ok", false).put("error", "Нужен 6-значный код со страницы «Телефон»")
         if (urls.isEmpty()) return JSONObject().put("ok", false).put("error", "Укажите адрес SWDS")
@@ -249,7 +249,8 @@ object Bridge {
                 p.deviceName = name
                 p.serverName = r.optString("server_name", "SWDS")
                 p.lastQueueId = 0
-                runCatching { hello(act) }
+                // старые уведомления из очереди сервера новому телефону не показываем
+                runCatching { hello(act) }.getOrNull()?.let { p.lastQueueId = it.optLong("last_id", 0) }
                 SyncWorker.schedule(act)
                 PushService.start(act)
                 SyncWorker.now(act, "all")

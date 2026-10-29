@@ -337,10 +337,10 @@ class MainActivity : Activity() {
             bar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
         }
 
-        override fun onShowFileChooser(view: WebView, cb: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+        override fun onShowFileChooser(view: WebView, cb: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
             fileCb?.onReceiveValue(null)
             fileCb = cb
-            val i = try { params.createIntent().putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == FileChooserParams.MODE_OPEN_MULTIPLE) }
+            val i = try { params.createIntent().putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) }
             catch (e: Exception) { Intent(Intent.ACTION_GET_CONTENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE) }
             return try { startActivityForResult(i, RC_FILE); true } catch (e: Exception) { fileCb = null; false }
         }

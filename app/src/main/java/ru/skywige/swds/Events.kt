@@ -20,6 +20,10 @@ object Events {
     fun catchUp(ctx: Context) {
         val p = Prefs(ctx)
         if (!p.paired) return
+        if (p.lastQueueId == 0L) {
+            p.lastQueueId = Api.get(ctx, "/modules/mobile/api/hello").optLong("last_id", 0)
+            return
+        }
         val r = Api.get(ctx, "/modules/mobile/api/pending?after=${p.lastQueueId}")
         val items = r.optJSONArray("items") ?: return
         for (i in 0 until items.length()) items.optJSONObject(i)?.let { handle(ctx, it) }
