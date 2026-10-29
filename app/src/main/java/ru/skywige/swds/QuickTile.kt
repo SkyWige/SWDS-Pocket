@@ -22,6 +22,16 @@ class QuickTile : TileService() {
     override fun onClick() {
         super.onClick()
         val cmd = Prefs(this).tileCommand
+        if (cmd?.optBoolean("assist") == true) {
+            val a = Intent(this, AssistActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(this, 1, a,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            else {
+                @Suppress("DEPRECATION")
+                startActivityAndCollapse(a)
+            }
+            return
+        }
         if (cmd != null && cmd.optString("input").isEmpty() && cmd.optString("command").isNotEmpty()) {
             Events.toast(this, "⏳ " + cmd.optString("title"))
             Actions.run(this, cmd.optString("command"), cmd.optJSONObject("args") ?: JSONObject())

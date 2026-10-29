@@ -9,31 +9,65 @@
 .w .t b { display: block; } .w .t small { color: var(--muted); font-size: 12.5px; }
 </style></head>
 <body>
-<div class="top"><h1>🧩 Виджет SWDS</h1><p>Что показывать на домашнем экране</p></div>
+<div class="top"><h1 id="h">🧩 Виджет SWDS</h1><p id="sub">Что показывать на домашнем экране</p></div>
 <div class="wrap">
   <div id="list"><p class="muted">Загрузка…</p></div>
-  <p class="muted">Свои виджеты делаются в SWDS → «Виджеты рабочего стола» и сразу появляются здесь.</p>
+  <p class="muted" id="foot">Свои виджеты делаются в SWDS → «Виджеты рабочего стола» и сразу появляются здесь.
+    Цвета виджетов (тема SWDS или обои) — в настройках приложения.</p>
   <button class="btn full" id="close">Отмена</button>
 </div>
 <script>
 const st = P.state();
-const cur = (st.extra || {}).current;
-function draw(ws) {
+const ex = st.extra || {};
+const cur = ex.current;
+const row = (w, on) => `<div class="w ${on ? "on" : ""}" data-id="${esc(w.id)}">
+  <span class="ic">${esc(w.icon || "🧩")}</span><div class="t"><b>${esc(w.name)}</b><small>${esc(w.description || "")}</small></div></div>`;
+
+function drawList(ws) {
   const b = ws.filter(w => w.kind === "builtin"), d = ws.filter(w => w.kind !== "builtin");
-  const row = (w) => `<div class="w ${cur && cur.wid === w.id ? "on" : ""}" data-id="${esc(w.id)}" data-n="${esc(w.name)}">
-    <span class="ic">${esc(w.icon || "🧩")}</span><div class="t"><b>${esc(w.name)}</b><small>${esc(w.description || "")}</small></div></div>`;
-  $("list").innerHTML = `<div class="card"><h2>Встроенные</h2>${b.map(row).join("")}</div>` +
-    (d.length ? `<div class="card"><h2>Виджеты SWDS Desktop</h2>${d.map(row).join("")}</div>` : "");
+  $("list").innerHTML = `<div class="card"><h2>Встроенные</h2>${b.map(w => row(w, cur && cur.wid === w.id)).join("")}</div>` +
+    (d.length ? `<div class="card"><h2>Виджеты SWDS Desktop</h2>${d.map(w => row(w, cur && cur.wid === w.id)).join("")}</div>` : "");
   document.querySelectorAll(".w").forEach(el => el.onclick = async () => {
+    const w = ws.find(x => x.id === el.dataset.id);
     el.classList.add("on");
-    await P.call("widget_set", { wid: el.dataset.id, name: el.dataset.n });
+    await P.call("widget_set", { wid: w.id, name: w.name });
   });
 }
+
+function drawButtons() {
+  $("h").textContent = "⚡ Кнопка SWDS";
+  $("sub").textContent = "Что делает кнопка на домашнем экране";
+  $("foot").textContent = "Быстрые действия настраиваются в SWDS на странице «Телефон» → «Быстрые действия».";
+  const builtin = [
+    { id: "assist", icon: "🎙", name: "Ассистент", description: "Сказать или написать команду", action: { assist: true } },
+    { id: "remote", icon: "🎛", name: "Пульт ПК", description: "Медиа, громкость, блокировка, режимы", action: { open: "/modules/mobile/remote" } },
+    { id: "pp", icon: "⏯", name: "Пауза / играть на ПК", description: "То, что сейчас играет", action: { command: "mobile.media_control", args: { cmd: "play_pause" }, toast: "⏯" } },
+    { id: "next", icon: "⏭", name: "Следующий трек", description: "На компьютере", action: { command: "mobile.media_control", args: { cmd: "next" }, toast: "⏭" } },
+    { id: "send", icon: "📤", name: "Отправить файл на ПК", description: "Выбрать файлы и положить на компьютер", action: { pick: true } },
+    { id: "lock", icon: "🔒", name: "Заблокировать ПК", description: "С подтверждением", action: { command: "windows_manager.lock", args: {}, confirm: "Заблокировать компьютер?" } },
+    { id: "today", icon: "☀️", name: "Сегодня", description: "Открыть сводку дня", action: { open: "/" } },
+  ];
+  const quick = ((st.hello || {}).quick || []).map((q, i) => ({
+    id: "q" + i, icon: q.icon || "⚡", name: q.title || q.command, description: q.command,
+    action: q.input ? { input: { command: q.command, arg: q.input, args: q.args || {}, placeholder: q.placeholder || "", title: q.title || "" } }
+                    : { command: q.command, args: q.args || {} },
+  }));
+  const all = builtin.concat(quick);
+  $("list").innerHTML = `<div class="card"><h2>Встроенные</h2>${builtin.map(w => row(w, cur && cur.title === w.name)).join("")}</div>` +
+    (quick.length ? `<div class="card"><h2>Быстрые действия</h2>${quick.map(w => row(w, cur && cur.title === w.name)).join("")}</div>` : "");
+  document.querySelectorAll(".w").forEach(el => el.onclick = async () => {
+    const w = all.find(x => x.id === el.dataset.id);
+    el.classList.add("on");
+    await P.call("button_set", { icon: w.icon, title: w.name, action: w.action });
+  });
+}
+
 (async () => {
+  if (ex.kind === "button") return drawButtons();
   const cached = ((st.hello || {}).catalog) || [];
-  if (cached.length) draw(cached);
+  if (cached.length) drawList(cached);
   const r = await P.call("widgets");
-  if (r.ok) draw(r.widgets || []);
+  if (r.ok) drawList(r.widgets || []);
   else if (!cached.length) $("list").innerHTML = `<div class="card"><div class="err">${esc(r.error || "Нет связи с SWDS")}</div>
     <p class="muted">Сначала привяжите телефон к SWDS в приложении.</p></div>`;
 })();

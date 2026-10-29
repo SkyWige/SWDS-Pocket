@@ -129,7 +129,8 @@ object Api {
      * onProgress(отправлено, всего) — всего может быть -1.
      */
     fun upload(ctx: Context, path: String, fileName: String, mime: String, size: Long, input: () -> InputStream,
-               fields: Map<String, String> = emptyMap(), onProgress: ((Long, Long) -> Unit)? = null): JSONObject =
+               fields: Map<String, String> = emptyMap(), fileField: String = "file",
+               onProgress: ((Long, Long) -> Unit)? = null): JSONObject =
         withServer(ctx, path, "POST", 15000, 300000) { conn ->
             val boundary = "----swds" + System.currentTimeMillis()
             conn.doOutput = true
@@ -141,7 +142,7 @@ object Api {
                     out.write(v.toByteArray(Charsets.UTF_8)); out.write("\r\n".toByteArray())
                 }
                 val safe = fileName.replace("\"", "'").replace("\r", "").replace("\n", "")
-                out.write(("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"$safe\"\r\n" +
+                out.write(("--$boundary\r\nContent-Disposition: form-data; name=\"$fileField\"; filename=\"$safe\"\r\n" +
                         "Content-Type: ${mime.ifEmpty { "application/octet-stream" }}\r\n\r\n").toByteArray(Charsets.UTF_8))
                 var sent = 0L
                 var lastReport = 0L

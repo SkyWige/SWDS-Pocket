@@ -83,9 +83,11 @@ object Events {
                 "theme" -> {
                     e.optJSONObject("theme")?.let { p.theme = it }
                     SwdsWidget.refreshAll(app)
+                    ButtonWidget.renderAll(app)
                     main.post { onTheme?.invoke() }
                 }
                 "sync" -> SyncWorker.now(app, "all")
+                "media" -> MediaHub.onRemote(app, e)
                 "unpaired" -> {
                     p.unpair()
                     PushService.stop(app)

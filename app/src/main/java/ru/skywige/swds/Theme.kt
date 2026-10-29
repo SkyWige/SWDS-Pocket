@@ -61,8 +61,22 @@ object Theme {
             .put("muted", hex(p.muted)).put("accent", hex(p.accent)).put("topbar", hex(p.topbar)).put("dark", p.dark)
     }
 
-    /** Цвета виджета из ответа сервера (colors: {mode, light, dark}). */
+    /** Цвета обоев (Material You, Android 12+). */
+    fun wallpaper(ctx: Context): Palette? {
+        if (android.os.Build.VERSION.SDK_INT < 31) return null
+        val night = systemNight(ctx)
+        fun c(id: Int) = ctx.getColor(id)
+        return if (night) Palette(c(android.R.color.system_neutral1_900), c(android.R.color.system_neutral1_800),
+            c(android.R.color.system_neutral1_50), c(android.R.color.system_neutral2_200), c(android.R.color.system_accent1_200),
+            c(android.R.color.system_neutral1_900), true)
+        else Palette(c(android.R.color.system_neutral1_50), c(android.R.color.system_accent2_50),
+            c(android.R.color.system_neutral1_900), c(android.R.color.system_neutral2_700), c(android.R.color.system_accent1_600),
+            c(android.R.color.system_accent1_800), false)
+    }
+
+    /** Цвета виджета из ответа сервера (colors: {mode, light, dark}) или обоев — по настройке. */
     fun widgetColors(ctx: Context, colors: JSONObject?): Palette {
+        if (Prefs(ctx).widgetColors == "wallpaper") wallpaper(ctx)?.let { return it }
         val base = palette(ctx)
         if (colors == null) return base
         val night = systemNight(ctx)

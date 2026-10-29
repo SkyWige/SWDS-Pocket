@@ -66,6 +66,64 @@ class Prefs(ctx: Context) {
         get() = sp.getString("tile_command", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
         set(v) = sp.edit().putString("tile_command", v?.toString()).apply()
 
+    // ── лента уведомлений телефона ──
+    var feedEnabled: Boolean
+        get() = sp.getBoolean("feed_enabled", false)
+        set(v) = sp.edit().putBoolean("feed_enabled", v).apply()
+
+    /** except — все, кроме списка; only — только из списка */
+    var feedMode: String
+        get() = sp.getString("feed_mode", "except") ?: "except"
+        set(v) = sp.edit().putString("feed_mode", v).apply()
+
+    var feedApps: List<String>
+        get() = jsonList(sp.getString("feed_apps", "[]"))
+        set(v) = sp.edit().putString("feed_apps", JSONArray(v.distinct()).toString()).apply()
+
+    var feedLastSent: Long
+        get() = sp.getLong("feed_last_sent", 0L)
+        set(v) = sp.edit().putLong("feed_last_sent", v).apply()
+
+    // ── ассистент ──
+    var assistAutoListen: Boolean
+        get() = sp.getBoolean("assist_auto_listen", true)
+        set(v) = sp.edit().putBoolean("assist_auto_listen", v).apply()
+
+    var assistSpeak: Boolean
+        get() = sp.getBoolean("assist_speak", true)
+        set(v) = sp.edit().putBoolean("assist_speak", v).apply()
+
+    /** phone — распознавание телефоном; server — запись отправляется на SWDS (Vosk) */
+    var assistEngine: String
+        get() = sp.getString("assist_engine", "phone") ?: "phone"
+        set(v) = sp.edit().putString("assist_engine", v).apply()
+
+    /** phone — голос телефона (TTS); server — голос SWDS */
+    var assistVoice: String
+        get() = sp.getString("assist_voice", "phone") ?: "phone"
+        set(v) = sp.edit().putString("assist_voice", v).apply()
+
+    // ── внешний вид и медиа ──
+    /** swds — цвета темы SWDS; wallpaper — цвета обоев (Material You, Android 12+) */
+    var widgetColors: String
+        get() = sp.getString("widget_colors", "swds") ?: "swds"
+        set(v) = sp.edit().putString("widget_colors", v).apply()
+
+    var remoteMedia: Boolean
+        get() = sp.getBoolean("remote_media", true)
+        set(v) = sp.edit().putBoolean("remote_media", v).apply()
+
+    /** Последняя сводка «Сегодня» — показывается без связи. */
+    var todayCache: String
+        get() = sp.getString("today_cache", "") ?: ""
+        set(v) = sp.edit().putString("today_cache", v).apply()
+
+    fun buttonFor(appWidgetId: Int): JSONObject? =
+        sp.getString("button_$appWidgetId", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+
+    fun setButton(appWidgetId: Int, v: JSONObject?) =
+        sp.edit().apply { if (v == null) remove("button_$appWidgetId") else putString("button_$appWidgetId", v.toString()) }.apply()
+
     /** Последний ответ /hello: быстрые действия, папки, каталог виджетов, модули. */
     var hello: JSONObject
         get() = runCatching { JSONObject(sp.getString("hello", "{}") ?: "{}") }.getOrDefault(JSONObject())
@@ -105,6 +163,10 @@ class Prefs(ctx: Context) {
         put("persistent_push", persistentPush); put("report_location", reportLocation); put("report_device", reportDevice)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)
+        put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))
+        put("feed_last_sent", feedLastSent); put("assist_auto_listen", assistAutoListen); put("assist_speak", assistSpeak)
+        put("assist_engine", assistEngine); put("assist_voice", assistVoice); put("widget_colors", widgetColors)
+        put("remote_media", remoteMedia)
     }
 
     companion object {

@@ -78,10 +78,18 @@ class ShareActivity : LocalPageActivity() {
         "pick" -> { main.post { pick() }; ok() }
         "remove" -> { val i = a.optInt("index", -1); if (i in uris.indices) uris.removeAt(i); ok(JSONObject().put("items", items())) }
         "upload" -> upload(a)
-        "send_text" -> {
+        "send_text" -> try {
             val r = Api.post(this, "/modules/mobile/api/text", JSONObject().put("text", a.optString("text")).put("action", a.optString("action")))
             if (r.optBoolean("ok")) ok(r) else err(r.optString("error"))
+        } catch (e: Exception) {
+            if (OfflineQueue.isOffline(e)) {
+                OfflineQueue.addText(this, a.optString("text"), a.optString("action"))
+                ok(JSONObject().put("message", "📴 Нет связи — отправлю, когда появится").put("queued", true))
+            } else err(e.message)
         }
+        "link_actions" -> try {
+            ok(Api.post(this, "/modules/mobile/api/link_actions", JSONObject().put("text", a.optString("text")), timeoutMs = 6000))
+        } catch (e: Exception) { err(e.message) }
         else -> super.handle(id, method, a)
     }
 
@@ -117,6 +125,15 @@ class ShareActivity : LocalPageActivity() {
                         .put("note", r.optString("note")))
                     emit("done", JSONObject().put("index", i).put("ok", true).put("where", r.optString("where")))
                 } catch (e: Exception) {
+                    if (OfflineQueue.isOffline(e)) {
+                        try {
+                            OfflineQueue.addUpload(this, u, f.name, f.mime, fields)
+                            okCount++
+                            results.put(JSONObject().put("name", f.name).put("ok", true).put("where", "в очереди"))
+                            emit("done", JSONObject().put("index", i).put("ok", true).put("where", "📴 нет связи — отправлю позже"))
+                            continue
+                        } catch (e2: Exception) { /* не удалось скопировать — покажем исходную ошибку */ }
+                    }
                     results.put(JSONObject().put("name", f.name).put("ok", false).put("error", e.message))
                     emit("done", JSONObject().put("index", i).put("ok", false).put("error", e.message))
                 }

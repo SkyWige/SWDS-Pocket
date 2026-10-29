@@ -108,6 +108,7 @@ class MainActivity : Activity() {
         web.setDownloadListener { url, ua, cd, mime, len -> download(url, ua, cd, mime, len) }
 
         Events.onTheme = { applyTheme(); if (loggedIn) web.reload() }
+        current = java.lang.ref.WeakReference(this)
         askNotificationPermission()
         open(pathFrom(intent) ?: "/")
         PushService.start(this)
@@ -142,6 +143,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         if (Events.onTheme != null) Events.onTheme = null
+        if (current?.get() === this) { current = null; MediaHub.clearLocal(this) }
         if (::web.isInitialized) runCatching { web.destroy() }
         super.onDestroy()
     }
@@ -149,6 +151,7 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (::web.isInitialized && web.canGoBack()) web.goBack()
+        else if (MediaHub.foreground) moveTaskToBack(true)          // музыка играет — не закрываем, а сворачиваем
         else {
             @Suppress("DEPRECATION")
             super.onBackPressed()
@@ -226,6 +229,9 @@ class MainActivity : Activity() {
         val m = PopupMenu(this, anchor)
         val items = listOf(
             "🔔 Уведомления" to "/modules/notifications/window",
+            "🎛 Пульт ПК" to "/modules/mobile/remote",
+            "🎙 Ассистент поверх экрана" to "#assist",
+            "📲 Лента уведомлений" to "/modules/mobile/window#feed",
             "⚡ Команды" to "/ui/commands",
             "🤖 Планировщик" to "/ui/scheduler",
             "📱 Телефон и общая папка" to "/modules/mobile/window",
@@ -240,6 +246,7 @@ class MainActivity : Activity() {
             when (val target = items[mi.itemId].second) {
                 "#settings" -> startActivity(Intent(this, SettingsActivity::class.java))
                 "#reload" -> web.reload()
+                "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
                 "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
                 else -> open(target)
             }
@@ -443,10 +450,25 @@ class MainActivity : Activity() {
         @JavascriptInterface fun toast(text: String) = Events.toast(this@MainActivity, text)
         @JavascriptInterface fun deviceId(): String = Prefs(this@MainActivity).deviceId
         @JavascriptInterface fun server(): String = base()
+        /** swds_now_playing.js: что играет в плеере SWDS на этой странице → медиа-уведомление. */
+        @JavascriptInterface fun media(json: String) = MediaHub.onLocal(this@MainActivity, json)
+        /** offline.html: последняя сводка «Сегодня» и очередь. */
+        @JavascriptInterface fun cache(): String = org.json.JSONObject()
+            .put("today", runCatching { org.json.JSONObject(Prefs(this@MainActivity).todayCache) }.getOrNull() ?: org.json.JSONObject.NULL)
+            .put("queue", OfflineQueue.count(this@MainActivity))
+            .put("feed", FeedStore.pendingCount(this@MainActivity)).toString()
+        @JavascriptInterface fun assistant() = main.post { startActivity(Intent(this@MainActivity, AssistActivity::class.java)) }
     }
 
     companion object {
         @Volatile var visible = false
+        @Volatile var current: java.lang.ref.WeakReference<MainActivity>? = null
+
+        /** Выполнить JS на открытой странице SWDS (управление плеером из медиа-уведомления). */
+        fun runJs(code: String) {
+            val a = current?.get() ?: return
+            a.main.post { if (!a.isFinishing) a.web.evaluateJavascript(code, null) }
+        }
         const val RC_FILE = 31
         const val RC_PERM = 32
         const val RC_MIC = 33

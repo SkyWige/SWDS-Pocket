@@ -2,21 +2,55 @@
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Нет связи</title><link rel="stylesheet" href="app.css">
 <style>
-body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; text-align: center; }
 @media (prefers-color-scheme: dark) { :root { --bg: #0b1020; --surface: #151b2e; --text: #e5e9f5; --muted: #94a3b8; --accent: #60a5fa; } }
-.big { font-size: 56px; margin-bottom: 8px; }
+body { padding: 18px 14px 30px; }
+.head { text-align: center; margin: 18px 0 14px; }
+.big { font-size: 46px; }
+.r { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.r:first-child { border-top: none; }
+.r .i { width: 22px; text-align: center; flex: none; } .r .t { flex: 1; min-width: 0; } .r .t small { display: block; color: var(--muted); font-size: 12.5px; }
+.r .rt { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.h { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 12px 0 2px; }
+.metric { font-size: 30px; font-weight: 800; }
 </style></head>
 <body>
-<div style="max-width:420px">
-  <div class="big">📡</div>
-  <h2 style="margin:0 0 6px">SWDS не отвечает</h2>
-  <p class="muted" id="why"></p>
-  <p class="muted">Проверьте, что компьютер с SWDS включён, а телефон в той же сети. Вне дома нужен внешний адрес сервера (Настройки → Адреса).</p>
-  <div class="btns" style="justify-content:center">
-    <button class="btn pri" onclick="window.SWDSPocket && SWDSPocket.retry()">Повторить</button>
-    <button class="btn" onclick="window.SWDSPocket && SWDSPocket.openSettings()">Настройки</button>
+<div class="wrap">
+  <div class="head">
+    <div class="big">📡</div>
+    <h2 style="margin:4px 0">SWDS не отвечает</h2>
+    <p class="muted" id="why"></p>
+    <div class="btns" style="justify-content:center">
+      <button class="btn pri" onclick="window.SWDSPocket && SWDSPocket.retry()">Повторить</button>
+      <button class="btn" onclick="window.SWDSPocket && SWDSPocket.openSettings()">Настройки</button>
+    </div>
   </div>
-  <p class="muted" style="margin-top:18px">Уведомления продолжат приходить, когда связь появится.</p>
+  <div class="card" id="q" style="display:none"></div>
+  <div class="card" id="today" style="display:none"><h2 id="today-h">Сегодня</h2><div id="rows"></div></div>
+  <p class="muted" style="text-align:center">Команды, тексты и файлы без связи встают в очередь и уйдут сами, когда сервер появится.
+    Проверьте, что компьютер с SWDS включён; вне дома нужен внешний адрес (Настройки → Адреса).</p>
 </div>
-<script>document.getElementById("why").textContent = decodeURIComponent(location.hash.slice(1) || "");</script>
+<script>
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+document.getElementById("why").textContent = decodeURIComponent(location.hash.slice(1) || "");
+let c = {};
+try { c = JSON.parse(window.SWDSPocket.cache()); } catch (e) { }
+if (c.queue || c.feed) {
+  const q = document.getElementById("q"); q.style.display = "";
+  q.innerHTML = `<h2>Ждут отправки</h2>` + (c.queue ? `<div>📤 Действий и файлов: <b>${c.queue}</b></div>` : "") +
+    (c.feed ? `<div>📲 Уведомлений для ленты: <b>${c.feed}</b></div>` : "");
+}
+const t = c.today;
+if (t && t.rows && t.rows.length) {
+  document.getElementById("today").style.display = "";
+  const d = new Date(t.fetched || 0);
+  document.getElementById("today-h").textContent = "Сегодня · сохранено в " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("rows").innerHTML = t.rows.map(r => {
+    if (r.t === "header") return `<div class="h">${esc(r.text)}</div>`;
+    if (r.t === "metric") return `<div class="metric">${esc(r.value)}</div><div class="muted">${esc(r.label)}</div>`;
+    if (r.t === "item") return `<div class="r"><span class="i">${esc(r.icon || "•")}</span><div class="t">${esc(r.text)}${r.sub ? `<small>${esc(r.sub)}</small>` : ""}</div><span class="rt">${esc(r.right || "")}</span></div>`;
+    if (r.t === "text") return `<div class="muted" style="padding:4px 0">${esc(r.text)}</div>`;
+    return "";
+  }).join("");
+}
+</script>
 </body></html>

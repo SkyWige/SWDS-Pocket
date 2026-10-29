@@ -42,6 +42,15 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
             val streamFresh = System.currentTimeMillis() - p.lastStreamOk < 90_000
             if (what in setOf("all", "pending") && !streamFresh) step("pending") { Events.catchUp(ctx) }
             if (what in setOf("all", "report")) step("report") { Device.send(ctx) }
+            if (what in setOf("all", "queue", "report") && OfflineQueue.count(ctx) > 0) step("queue") {
+                OfflineQueue.flush(ctx)
+                if (OfflineQueue.count(ctx) > 0) failed = true
+            }
+            if (what in setOf("all", "feed", "queue")) step("feed") { FeedStore.flush(ctx) }
+            if (what == "all") step("today") {
+                val r = Api.get(ctx, "/modules/mobile/api/widget/today", 20000)
+                p.todayCache = r.put("fetched", System.currentTimeMillis()).toString()
+            }
             if (what in setOf("all", "folders")) step("folders") { syncFolders(ctx) }
             if (what in setOf("all", "outbox") && p.receiveFiles) step("outbox") { outbox(ctx) }
             if (what in setOf("all", "widgets")) step("widgets") { SwdsWidget.updateAllSync(ctx) }
@@ -49,7 +58,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
         } catch (e: ApiException) {
             return Result.success()
         }
-        return if (failed && runAttemptCount < 2 && what != "all") Result.retry() else Result.success()
+        val maxTries = if (what == "queue" || what == "feed") 30 else 2      // очередь ждёт связь долго
+        return if (failed && runAttemptCount < maxTries && what != "all") Result.retry() else Result.success()
     }
 
     private fun outbox(ctx: Context) {

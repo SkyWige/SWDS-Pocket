@@ -26,6 +26,50 @@
   </div>
 
   <div class="card">
+    <h2>📲 Лента уведомлений → SWDS</h2>
+    <div class="row"><div class="t"><b>Собирать уведомления телефона</b><small>Банк, SMS, мессенджеры — копятся в ленте устройства на сервере.
+      Модули (например, кошелёк) смогут их разбирать.</small></div>
+      <label class="sw"><input type="checkbox" id="feed"><span></span></label></div>
+    <div class="row"><div class="t"><b>Доступ к уведомлениям</b><small id="feed-acc">—</small></div>
+      <button class="btn sm" id="feed-acc-btn">Открыть</button></div>
+    <div class="row"><div class="t"><b>Очередь</b><small id="feed-st">—</small></div>
+      <button class="btn sm" id="feed-flush">Отправить</button></div>
+    <label class="f">Какие приложения
+      <select id="feed-mode"><option value="except">Все, кроме отмеченных</option><option value="only">Только отмеченные</option></select></label>
+    <button class="btn sm" id="feed-apps-btn">Выбрать приложения (<span id="feed-n">0</span>)</button>
+    <div id="feed-apps" class="hide" style="max-height:340px;overflow:auto;margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎙 Ассистент</h2>
+    <div class="row"><div class="t"><b>Ассистент по долгому нажатию «Домой»</b><small>Выберите SWDS в «Цифровой помощник» / «Помощник и голосовой ввод»</small></div>
+      <button class="btn sm" id="as-def">Настроить</button></div>
+    <div class="row"><div class="t"><b>Слушать сразу при открытии</b></div>
+      <label class="sw"><input type="checkbox" id="as-auto"><span></span></label></div>
+    <div class="row"><div class="t"><b>Отвечать голосом</b></div>
+      <label class="sw"><input type="checkbox" id="as-speak"><span></span></label></div>
+    <label class="f">Распознавание речи
+      <select id="as-engine"><option value="phone">Телефон (быстро, нужен Google)</option><option value="server">Сервер SWDS (Vosk, без Google)</option></select></label>
+    <label class="f">Голос ответа
+      <select id="as-voice"><option value="phone">Голос телефона</option><option value="server">Голос SWDS (как у колонки)</option></select></label>
+    <div class="btns"><button class="btn sm" id="as-open">🎙 Открыть ассистента</button></div>
+  </div>
+
+  <div class="card">
+    <h2>🎨 Вид и медиа</h2>
+    <label class="f" id="wc-l">Цвета виджетов
+      <select id="wc"><option value="swds">Тема SWDS</option><option value="wallpaper">Цвета обоев (Material You)</option></select></label>
+    <div class="row"><div class="t"><b>Что играет на компьютере</b><small>Медиа-уведомление с кнопками ⏮ ⏯ ⏭, когда музыка играет на ПК</small></div>
+      <label class="sw"><input type="checkbox" id="rmedia"><span></span></label></div>
+  </div>
+
+  <div class="card">
+    <h2>📴 Без связи</h2>
+    <div class="row"><div class="t"><b>Очередь отправки</b><small id="q-st">—</small></div>
+      <button class="btn sm" id="q-flush">Отправить</button><button class="btn sm danger" id="q-clear">✕</button></div>
+  </div>
+
+  <div class="card">
     <h2>Что телефон сообщает серверу</h2>
     <div class="row"><div class="t"><b>Заряд, зарядка, Wi-Fi</b><small>События для автоматизаций: «мало заряда», «пришёл домой (Wi-Fi)», «поставил на зарядку»</small></div>
       <label class="sw"><input type="checkbox" id="rdev"><span></span></label></div>
@@ -113,11 +157,12 @@ function renderTile() {
   const q = hello.quick || [];
   const cur = st.tile_command;
   $("tile").innerHTML = `<option value="-1">⚡ Показать список быстрых действий</option>` +
+    `<option value="-2" ${cur && cur.assist ? "selected" : ""}>🎙 Ассистент</option>` +
     q.map((x, i) => `<option value="${i}" ${cur && cur.command === x.command && JSON.stringify(cur.args || {}) === JSON.stringify(x.args || {}) ? "selected" : ""}>${esc((x.icon || "") + " " + (x.title || x.command))}</option>`).join("");
 }
 $("tile").onchange = async () => {
   const i = +$("tile").value;
-  await P.call("save", { tile: i < 0 ? null : (hello.quick || [])[i] });
+  await P.call("save", { tile: i === -2 ? { assist: true, title: "Ассистент" } : i < 0 ? null : (hello.quick || [])[i] });
   toast("Плитка обновлена");
 };
 $("check").onclick = async () => {
@@ -182,7 +227,69 @@ $("nr-ok").onclick = async () => {
   await P.call("rule_add", { uri: pending.uri, name: pending.name, dest, path: dest === "shared" ? $("nr-path").value : "", only_new: $("nr-new").checked });
   $("newrule").classList.add("hide"); toast("Папка добавлена"); render();
 };
-window.addEventListener("focus", render);
+// ── лента, ассистент, вид ──
+let apps = null;
+async function renderExtra() {
+  const f = await P.call("feed_status");
+  $("feed").checked = !!st.feed_enabled;
+  $("feed-acc").innerHTML = f.access ? '<span class="pill ok">разрешён</span>' : '<span class="pill warn">нет доступа — включите SWDS в списке</span>';
+  $("feed-st").textContent = (f.pending ? `ждут отправки: ${f.pending}` : "всё отправлено") +
+    (f.last_sent ? " · последняя отправка " + new Date(f.last_sent).toLocaleString("ru-RU") : "");
+  $("feed-mode").value = st.feed_mode || "except";
+  $("feed-n").textContent = (st.feed_apps || []).length;
+  $("as-auto").checked = st.assist_auto_listen !== false;
+  $("as-speak").checked = st.assist_speak !== false;
+  $("as-engine").value = st.assist_engine || "phone";
+  $("as-voice").value = st.assist_voice || "phone";
+  if (!f.phone_stt) $("as-engine").options[0].textContent = "Телефон (недоступно на этом устройстве)";
+  $("wc").value = st.widget_colors || "swds";
+  $("wc-l").classList.toggle("hide", !f.wallpaper);
+  $("rmedia").checked = st.remote_media !== false;
+  const q = await P.call("queue");
+  const items = q.items || [];
+  $("q-st").textContent = items.length ? `${items.length}: ` + items.slice(0, 3).join(", ") + (items.length > 3 ? "…" : "") : "пусто";
+}
+$("feed").onchange = async () => {
+  if ($("feed").checked) {
+    const f = await P.call("feed_status");
+    if (!f.access) { toast("Разрешите SWDS доступ к уведомлениям"); P.call("feed_access"); }
+  }
+  await P.call("save", { feed_enabled: $("feed").checked });
+};
+$("feed-acc-btn").onclick = () => P.call("feed_access");
+$("feed-flush").onclick = async () => { const r = await P.call("feed_flush"); toast(r.ok ? "Отправлено" : r.error); renderExtra(); };
+$("feed-mode").onchange = () => P.call("save", { feed_mode: $("feed-mode").value });
+$("feed-apps-btn").onclick = async () => {
+  const box = $("feed-apps");
+  if (!box.classList.contains("hide")) { box.classList.add("hide"); return; }
+  if (!apps) { box.innerHTML = '<p class="muted">Загрузка…</p>'; box.classList.remove("hide"); apps = (await P.call("apps")).apps || []; }
+  const sel = new Set(st.feed_apps || []);
+  box.innerHTML = apps.map(a => `<div class="row"><div class="t"><b>${esc(a.app)}</b><small>${esc(a.package)}</small></div>
+    <label class="sw"><input type="checkbox" data-p="${esc(a.package)}" ${sel.has(a.package) ? "checked" : ""}><span></span></label></div>`).join("");
+  box.classList.remove("hide");
+  box.querySelectorAll("[data-p]").forEach(i => i.onchange = async () => {
+    const cur = new Set(P.state().feed_apps || []);
+    i.checked ? cur.add(i.dataset.p) : cur.delete(i.dataset.p);
+    await P.call("save", { feed_apps: [...cur] });
+    st = P.state(); $("feed-n").textContent = cur.size;
+  });
+};
+$("as-def").onclick = () => P.call("assist_default");
+$("as-open").onclick = () => P.call("open_assist");
+$("as-auto").onchange = () => P.call("save", { assist_auto_listen: $("as-auto").checked });
+$("as-speak").onchange = () => P.call("save", { assist_speak: $("as-speak").checked });
+$("as-engine").onchange = async () => {
+  if ($("as-engine").value === "server") await P.call("permission", { what: "microphone" });
+  P.call("save", { assist_engine: $("as-engine").value });
+};
+$("as-voice").onchange = () => P.call("save", { assist_voice: $("as-voice").value });
+$("wc").onchange = async () => { await P.call("save", { widget_colors: $("wc").value }); toast("Виджеты перекрашены"); };
+$("rmedia").onchange = () => P.call("save", { remote_media: $("rmedia").checked });
+$("q-flush").onclick = async () => { const r = await P.call("queue_flush"); toast(r.ok ? `Отправлено: ${r.sent}, осталось: ${r.left}` : r.error); renderExtra(); };
+$("q-clear").onclick = async () => { if (confirm("Удалить всё из очереди?")) { await P.call("queue_clear"); renderExtra(); } };
+
+window.addEventListener("focus", () => { render(); renderExtra(); });
 render();
+renderExtra();
 </script>
 </body></html>

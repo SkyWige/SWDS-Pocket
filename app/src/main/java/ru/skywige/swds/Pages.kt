@@ -99,6 +99,7 @@ abstract class LocalPageActivity : Activity() {
                     "background_location" -> if (Build.VERSION.SDK_INT >= 29) arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION) else arrayOf()
                     "storage" -> if (Build.VERSION.SDK_INT < 29) arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE) else arrayOf()
                     "camera" -> arrayOf(Manifest.permission.CAMERA)
+                    "microphone" -> arrayOf(Manifest.permission.RECORD_AUDIO)
                     else -> arrayOf()
                 }
                 val missing = perms.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
@@ -294,6 +295,21 @@ class SettingsActivity : LocalPageActivity() {
                     if (p.activeServer !in p.servers) p.activeServer = p.servers.firstOrNull() ?: ""
                 }
                 if (a.has("tile")) p.tileCommand = a.optJSONObject("tile")
+                if (a.has("feed_enabled")) p.feedEnabled = a.optBoolean("feed_enabled")
+                if (a.has("feed_mode")) p.feedMode = a.optString("feed_mode", "except")
+                if (a.has("feed_apps")) {
+                    val arr = a.optJSONArray("feed_apps") ?: JSONArray()
+                    p.feedApps = (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotEmpty() }
+                }
+                if (a.has("assist_auto_listen")) p.assistAutoListen = a.optBoolean("assist_auto_listen")
+                if (a.has("assist_speak")) p.assistSpeak = a.optBoolean("assist_speak")
+                if (a.has("assist_engine")) p.assistEngine = a.optString("assist_engine", "phone")
+                if (a.has("assist_voice")) p.assistVoice = a.optString("assist_voice", "phone")
+                if (a.has("widget_colors")) {
+                    p.widgetColors = a.optString("widget_colors", "swds")
+                    SwdsWidget.refreshAll(this); ButtonWidget.renderAll(this)
+                }
+                if (a.has("remote_media")) { p.remoteMedia = a.optBoolean("remote_media"); main.post { MediaHub.update(applicationContext) } }
                 ok(p.toJson())
             }
             "check" -> {
@@ -309,6 +325,26 @@ class SettingsActivity : LocalPageActivity() {
                 ok()
             }
             "report_now" -> ok(Device.send(this))
+            "feed_status" -> ok(JSONObject().put("access", FeedListener.hasAccess(this)).put("pending", FeedStore.pendingCount(this))
+                .put("last_sent", p.feedLastSent).put("wallpaper", Build.VERSION.SDK_INT >= 31)
+                .put("phone_stt", android.speech.SpeechRecognizer.isRecognitionAvailable(this)))
+            "feed_access" -> {
+                main.post { runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } }
+                ok()
+            }
+            "feed_flush" -> { val all = FeedStore.flush(this); ok(JSONObject().put("all", all).put("pending", FeedStore.pendingCount(this))) }
+            "apps" -> ok(JSONObject().put("apps", FeedStore.launcherApps(this)))
+            "queue" -> ok(JSONObject().put("items", JSONArray(OfflineQueue.items(this).map { it.optString("title") })))
+            "queue_flush" -> ok(JSONObject().put("sent", OfflineQueue.flush(this)).put("left", OfflineQueue.count(this)))
+            "queue_clear" -> { OfflineQueue.clear(this); ok() }
+            "assist_default" -> {
+                main.post {
+                    val ok = runCatching { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }.isSuccess
+                    if (!ok) runCatching { startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) }
+                }
+                ok()
+            }
+            "open_assist" -> { main.post { startActivity(Intent(this, AssistActivity::class.java)) }; ok() }
             "sync_now" -> { SyncWorker.now(this, a.optString("what", "all")); ok() }
             "unpair" -> {
                 runCatching { Api.post(this, "/modules/mobile/api/report", JSONObject().put("bye", true)) }
@@ -386,10 +422,26 @@ class WidgetConfigActivity : LocalPageActivity() {
         if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) finish()
     }
 
+    private val isButton by lazy {
+        runCatching { AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId)?.provider?.className }
+            .getOrNull() == ButtonWidget::class.java.name
+    }
+
     override fun extraState(): JSONObject = JSONObject().put("widget_id", widgetId)
-        .put("current", Prefs(this).widgetFor(widgetId) ?: JSONObject.NULL)
+        .put("kind", if (isButton) "button" else "list")
+        .put("current", (if (isButton) Prefs(this).buttonFor(widgetId) else Prefs(this).widgetFor(widgetId)) ?: JSONObject.NULL)
 
     override fun handle(id: String, method: String, a: JSONObject): JSONObject? = when (method) {
+        "button_set" -> {
+            Prefs(this).setButton(widgetId, JSONObject().put("icon", a.optString("icon")).put("title", a.optString("title"))
+                .put("action", a.optJSONObject("action") ?: JSONObject()))
+            ButtonWidget.render(this, widgetId)
+            main.post {
+                setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+                finish()
+            }
+            ok()
+        }
         "widget_set" -> {
             Prefs(this).setWidget(widgetId, JSONObject().put("wid", a.optString("wid")).put("name", a.optString("name")))
             SwdsWidget.fetch(this, widgetId)

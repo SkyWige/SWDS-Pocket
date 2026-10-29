@@ -126,6 +126,10 @@ class PushService : Service() {
             if (code >= 400) throw ApiException("Ошибка $code", code)
             status("На связи · ${Prefs(this).activeServer.substringAfter("://")}")
             reportAsync()
+            Thread {                                             // связь есть — отправить накопленное без сети
+                runCatching { if (OfflineQueue.count(this) > 0) OfflineQueue.flush(this) }
+                runCatching { FeedStore.flush(this) }
+            }.start()
             Prefs(this).lastStreamOk = System.currentTimeMillis()
             BufferedReader(InputStreamReader(c.inputStream, Charsets.UTF_8)).use { r ->
                 val data = StringBuilder()

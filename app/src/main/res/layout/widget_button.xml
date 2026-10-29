@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_bg" android:scaleType="fitXY" android:contentDescription="@null" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="vertical" android:gravity="center" android:padding="4dp">
+        <TextView android:id="@+id/icon" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textSize="26sp" android:text="⚡" android:gravity="center" />
+        <TextView android:id="@+id/label" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="11sp" android:gravity="center" android:maxLines="1" android:ellipsize="end"
+            android:textColor="#0F172A" android:text="SWDS" />
+    </LinearLayout>
+</FrameLayout>

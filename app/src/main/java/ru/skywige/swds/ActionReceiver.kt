@@ -29,7 +29,11 @@ object Actions {
                 ok = true
                 Events.toast(app, okToast?.takeIf { it.isNotEmpty() } ?: resultText(r).take(200))
             } catch (e: Exception) {
-                Events.toast(app, "⚠ " + (e.message ?: "Ошибка"))
+                if (OfflineQueue.isOffline(e) && Prefs(app).paired) {
+                    OfflineQueue.addCommand(app, command, args)
+                    ok = true
+                    Events.toast(app, "📴 Нет связи с SWDS — выполню, когда появится")
+                } else Events.toast(app, "⚠ " + (e.message ?: "Ошибка"))
             }
             onDone?.invoke(ok)
         }.start()
@@ -39,6 +43,7 @@ object Actions {
     fun perform(act: Activity, a: JSONObject, widgetId: Int = -1) {
         val ctx = act.applicationContext
         when {
+            a.optBoolean("assist") -> act.startActivity(Intent(act, AssistActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             a.has("input") -> act.startActivity(Intent(act, InputActivity::class.java)
                 .putExtra("mode", "input").putExtra("spec", a.getJSONObject("input").toString())
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
@@ -70,6 +75,7 @@ class ActionReceiver : BroadcastReceiver() {
         val app = ctx.applicationContext
         when (intent.action) {
             A_RING_STOP -> Ring.stop(app)
+            MediaHub.A_MEDIA -> MediaHub.command(app, intent.getStringExtra("cmd") ?: "play_pause")
             A_ANSWER -> {
                 val pid = intent.getStringExtra("pid") ?: return
                 val reply = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(Notifier.KEY_REPLY)?.toString()

@@ -30,6 +30,7 @@
     <h2>Текст</h2>
     <textarea id="text"></textarea>
     <div class="chips" id="tact" style="margin-top:10px"></div>
+    <p class="muted" id="thint" style="margin:8px 0 0"></p>
     <button class="btn pri full" id="send-text" style="margin-top:12px">Отправить текст</button>
     <div id="tres"></div>
   </div>
@@ -40,8 +41,20 @@ const st = P.state();
 const hello = st.hello || {};
 let items = (st.extra || {}).items || [];
 let dest = "shared";
-const TEXT_ACTIONS = [["inbox", "📥 Во входящие"], ["clipboard", "📋 В буфер ПК"], ["file", "📝 В заметку-файл"], ["assistant", "🎙 Ассистенту"]];
+let TEXT_ACTIONS = [["inbox", "📥 Во входящие"], ["clipboard", "📋 В буфер ПК"], ["file", "📝 В заметку-файл"], ["assistant", "🎙 Ассистенту"]];
 let tact = hello.text_action || "inbox";
+let linkHints = {};
+async function loadLinkActions() {
+  const t = $("text").value.trim();
+  if (!t) return;
+  const r = await P.call("link_actions", { text: t });
+  if (!r.ok || !(r.actions || []).length) return;
+  TEXT_ACTIONS = r.actions.map(a => [a.id, a.icon + " " + a.title]);
+  linkHints = Object.fromEntries(r.actions.map(a => [a.id, a.hint || ""]));
+  if (r.url) tact = r.actions[0].id;                 // для ссылки — самое подходящее (видео → скачать, magnet → торренты)
+  else if (!TEXT_ACTIONS.some(x => x[0] === tact)) tact = r.actions[0].id;
+  renderText(true);
+}
 
 function icon(m, n) {
   m = m || ""; n = (n || "").toLowerCase();
@@ -74,12 +87,13 @@ function renderDest() {
     dest === "auto" ? "Сортировщик SWDS сам решит: документы — в Документы, фото — в Изображения и т.д." :
     "Файл ляжет в стандартную папку SWDS.";
 }
-function renderText() {
+function renderText(keep) {
   const t = (st.extra || {}).text || "";
   $("text-card").classList.toggle("hide", !t && items.length > 0);
-  $("text").value = t;
+  if (!keep) $("text").value = t;
   $("tact").innerHTML = TEXT_ACTIONS.map(([k, n]) => `<div class="chip ${k === tact ? "on" : ""}" data-k="${k}">${n}</div>`).join("");
-  document.querySelectorAll("#tact .chip").forEach(c => c.onclick = () => { tact = c.dataset.k; renderText(); });
+  document.querySelectorAll("#tact .chip").forEach(c => c.onclick = () => { tact = c.dataset.k; renderText(true); });
+  $("thint").textContent = linkHints[tact] || "";
 }
 P.on("items", d => { items = d.items || []; renderFiles(); $("text-card").classList.add("hide"); });
 P.on("progress", d => {
@@ -113,6 +127,7 @@ $("more").onclick = () => P.call("pick");
 $("close").onclick = () => P.call("close");
 $("sub").textContent = "на " + (st.server_name || "компьютер");
 renderFiles(); renderDest(); renderText();
+loadLinkActions();
 if (!items.length && !((st.extra || {}).text)) { $("files-card").classList.add("hide"); $("dest-card").classList.add("hide"); }
 </script>
 </body></html>

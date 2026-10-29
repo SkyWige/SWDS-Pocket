@@ -8,4 +8,7 @@
     <string name="tile_label">SWDS</string>
     <string name="loading">Загрузка…</string>
     <string name="empty">Пусто</string>
+    <string name="button_label">SWDS · кнопка</string>
+    <string name="button_desc">Одна кнопка: ассистент, команда SWDS, пульт или отправка файла</string>
+    <string name="assist_label">Ассистент SWDS</string>
 </resources>

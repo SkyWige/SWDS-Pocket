@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ассистент</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+html, body { background: transparent; height: 100%; }
+body { padding: 0; display: flex; flex-direction: column; }
+.sheet { flex: 1; display: flex; flex-direction: column; background: var(--bg); border-radius: 22px 22px 0 0; overflow: hidden;
+  box-shadow: 0 -10px 40px rgba(0,0,0,.25); }
+.grab { width: 40px; height: 4px; border-radius: 9px; background: color-mix(in srgb, var(--text) 25%, transparent); margin: 8px auto 2px; }
+.head { display: flex; align-items: center; gap: 8px; padding: 6px 14px 4px; }
+.head b { font-size: 16px; } .head .sp { flex: 1; }
+.head button { border: none; background: none; font-size: 18px; color: var(--muted); padding: 6px; }
+.chat { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 8px; }
+.msg { max-width: 86%; padding: 10px 13px; border-radius: 16px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; font-size: 15px; }
+.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 5px; }
+.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
+.bot .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.hint { color: var(--muted); font-size: 13.5px; text-align: center; padding: 18px 10px; }
+.sugg { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.sugg .chip { font-size: 13px; padding: 7px 10px; }
+.bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 14px; border-top: 1px solid var(--line); background: var(--surface); }
+.bar input { flex: 1; border-radius: 22px; padding: 11px 15px; }
+.mic { width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 24px; flex: none;
+  position: relative; transition: transform .1s; }
+.mic.on { background: #ef4444; }
+.mic .ring { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid color-mix(in srgb, #ef4444 45%, transparent); transform: scale(1); opacity: 0; }
+.mic.on .ring { opacity: 1; }
+.send { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--soft); color: var(--accent); font-size: 18px; flex: none; }
+.partial { color: var(--muted); font-style: italic; }
+.dots::after { content: "…"; animation: d 1s steps(3) infinite; }
+@keyframes d { 0% { content: "."; } 33% { content: ".."; } 66% { content: "…"; } }
+</style></head>
+<body>
+<div class="sheet">
+  <div class="grab"></div>
+  <div class="head"><b>🎙 Ассистент SWDS</b><span class="sp"></span>
+    <button id="voice" title="Озвучивать ответы">🔊</button><button id="open" title="Открыть приложение">↗</button>
+    <button id="close" title="Закрыть">✕</button></div>
+  <div class="chat" id="chat">
+    <div class="hint" id="hint">Скажите или напишите, что сделать.<br><br>
+      <div class="sugg" id="sugg"></div></div>
+  </div>
+  <div class="bar">
+    <input type="text" id="text" placeholder="Например: добавь задачу купить молоко" enterkeyhint="send">
+    <button class="send" id="send">➤</button>
+    <button class="mic" id="mic"><span class="ring" id="ring"></span>🎙</button>
+  </div>
+</div>
+<script>
+const st = P.state();
+let listening = false, speakOn = st.assist_speak !== false;
+const SUGG = ["Что у меня сегодня?", "Добавь задачу купить хлеб", "Сколько потратил за неделю?", "Как я спал?", "Поставь музыку на паузу"];
+$("sugg").innerHTML = SUGG.map(s => `<div class="chip">${esc(s)}</div>`).join("");
+document.querySelectorAll("#sugg .chip").forEach(c => c.onclick = () => ask(c.textContent));
+function voiceBtn() { $("voice").textContent = speakOn ? "🔊" : "🔇"; }
+voiceBtn();
+
+function add(cls, html) {
+  $("hint") && $("hint").remove();
+  const d = document.createElement("div"); d.className = "msg " + cls; d.innerHTML = html;
+  $("chat").appendChild(d); $("chat").scrollTop = 1e9; return d;
+}
+let partialEl = null;
+P.on("partial", d => { if (!partialEl) partialEl = add("me partial", ""); partialEl.textContent = d.text; });
+P.on("level", d => { $("ring").style.transform = `scale(${1 + d.level * 0.35})`; });
+P.on("state", d => { if (d.state === "thinking" && partialEl) partialEl.classList.add("dots"); });
+P.on("spoken", () => { if (st.assist_auto_listen && autoAgain) { autoAgain = false; } });
+let autoAgain = false;
+
+function setMic(on) { listening = on; $("mic").classList.toggle("on", on); if (!on) $("ring").style.transform = ""; }
+async function listen() {
+  if (listening) { P.call("stop_listen"); return; }
+  if (!st.extra.mic) {
+    const r = await P.call("permission", { what: "microphone" });
+    if (!r.granted) { add("bot", "Нужен доступ к микрофону — или напишите текстом."); return; }
+    st.extra.mic = true;
+  }
+  P.call("stop_speak");
+  setMic(true);
+  const r = await P.call("listen");
+  setMic(false);
+  const pe = partialEl; partialEl = null;
+  if (!r.ok) { if (pe) pe.remove(); add("bot", esc(r.error)); return; }
+  if (pe) { pe.className = "msg me"; pe.textContent = r.text; } else add("me", esc(r.text));
+  if (r.result) show(r.result);           // распознавал сервер — ответ уже готов
+  else ask(r.text, true);
+}
+async function ask(text, already) {
+  text = (text || "").trim(); if (!text) return;
+  if (!already) add("me", esc(text));
+  const wait = add("bot", '<span class="dots">Думаю</span>');
+  const r = await P.call("ask", { text });
+  wait.remove();
+  if (!r.ok && !r.text) { add("bot", "⚠ " + esc(r.error || "Нет связи с SWDS")); return; }
+  show(r);
+}
+function show(r) {
+  const el = add("bot", esc(r.text || r.speech || "Готово"));
+  if (r.navigate) {
+    const a = document.createElement("div"); a.className = "acts";
+    a.innerHTML = `<button class="btn sm">↗ Открыть</button>`;
+    a.firstChild.onclick = () => P.call("open_main", { path: r.navigate });
+    el.appendChild(a);
+  }
+  if (speakOn) P.call("speak", { text: r.speech || r.text || "", audio: (r.audio && r.audio.url) || "" });
+}
+$("mic").onclick = listen;
+$("send").onclick = () => { const t = $("text").value; $("text").value = ""; ask(t); };
+$("text").addEventListener("keydown", e => { if (e.key === "Enter") $("send").click(); });
+$("close").onclick = () => P.call("close");
+$("open").onclick = () => P.call("open_main", { path: "/ui/assistant" });
+$("voice").onclick = async () => { speakOn = !speakOn; voiceBtn(); if (!speakOn) P.call("stop_speak"); await P.call("save", { speak: speakOn }); };
+if (st.assist_auto_listen !== false) setTimeout(listen, 250);
+P.on("again", () => { if (!listening) listen(); });
+</script>
+</body></html>
