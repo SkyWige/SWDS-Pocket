@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/row"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="3dp" android:paddingBottom="3dp">
+    <ImageView android:id="@+id/btnbg" android:layout_width="match_parent" android:layout_height="40dp"
+        android:src="@drawable/row_btn_bg" android:scaleType="fitXY" android:contentDescription="@null" />
+    <TextView android:id="@+id/t" android:layout_width="match_parent" android:layout_height="40dp"
+        android:gravity="center_vertical" android:paddingStart="12dp" android:paddingEnd="12dp"
+        android:textSize="13.5sp" android:textStyle="bold" android:textColor="#0F172A" android:maxLines="1"
+        android:ellipsize="end" />
+</FrameLayout>

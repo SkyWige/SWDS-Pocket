@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Настройки</title><link rel="stylesheet" href="app.css"><script src="app.js"></script></head>
+<body>
+<div class="top"><h1>⚙ Настройки</h1><p id="ver"></p></div>
+<div class="wrap">
+  <div class="card">
+    <h2>Сервер</h2>
+    <div class="row"><div class="t"><b id="srv">—</b><small id="srv-st">Связь не проверялась</small></div>
+      <button class="btn sm" id="check">Проверить</button></div>
+    <label class="f">Адреса SWDS (по одному в строке; сначала домашний, потом внешний)
+      <textarea id="servers" autocapitalize="off" spellcheck="false" style="min-height:80px"></textarea></label>
+    <label class="f">Имя телефона<input type="text" id="dname"></label>
+    <button class="btn full" id="save-srv">Сохранить</button>
+  </div>
+
+  <div class="card">
+    <h2>Уведомления</h2>
+    <div class="row"><div class="t"><b>Мгновенная доставка</b><small>Постоянное соединение с сервером. Без него уведомления приходят раз в 15 минут.</small></div>
+      <label class="sw"><input type="checkbox" id="push"><span></span></label></div>
+    <div class="row"><div class="t"><b>Разрешение на уведомления</b><small id="perm-n"></small></div>
+      <button class="btn sm" id="nperm">Настроить</button></div>
+    <div class="row"><div class="t"><b>Работа в фоне</b><small id="perm-b">Чтобы Android не усыплял соединение</small></div>
+      <button class="btn sm" id="batt">Разрешить</button></div>
+    <div class="btns"><button class="btn sm" id="test">🧪 Тестовое уведомление</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Что телефон сообщает серверу</h2>
+    <div class="row"><div class="t"><b>Заряд, зарядка, Wi-Fi</b><small>События для автоматизаций: «мало заряда», «пришёл домой (Wi-Fi)», «поставил на зарядку»</small></div>
+      <label class="sw"><input type="checkbox" id="rdev"><span></span></label></div>
+    <div class="row"><div class="t"><b>Местоположение</b><small id="loc-st">Для модуля «Геолокация» и зон. Нужен доступ к геоданным.</small></div>
+      <label class="sw"><input type="checkbox" id="rloc"><span></span></label></div>
+    <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Файлы</h2>
+    <div class="row"><div class="t"><b>Принимать файлы с компьютера</b><small>Всё из папки «Телефон/На телефон» скачивается в Загрузки/SWDS</small></div>
+      <label class="sw"><input type="checkbox" id="rfiles"><span></span></label></div>
+    <div class="row hide" id="stor-row"><div class="t"><b>Доступ к памяти</b><small>Нужен на Android 9 и старше для папки Загрузки/SWDS</small></div>
+      <button class="btn sm" id="stor">Разрешить</button></div>
+    <h2 style="margin-top:14px">Синхронизация папок → SWDS</h2>
+    <div id="rules"></div>
+    <div class="card hide" id="newrule" style="margin-top:10px;background:var(--bg)">
+      <b id="nr-name"></b>
+      <label class="f">Куда отправлять на компьютере</label>
+      <div class="chips" id="nr-dest"></div>
+      <label class="f" id="nr-path-l">Подпапка в общей папке<input type="text" id="nr-path"></label>
+      <div class="row"><div class="t"><b>Только новые файлы</b><small>Иначе отправятся и все уже лежащие в папке</small></div>
+        <label class="sw"><input type="checkbox" id="nr-new" checked><span></span></label></div>
+      <div class="btns"><button class="btn pri" id="nr-ok">Добавить</button><button class="btn" id="nr-cancel">Отмена</button></div>
+    </div>
+    <div class="btns"><button class="btn sm" id="addrule">＋ Добавить папку (например, Камера или Скриншоты)</button>
+      <button class="btn sm" id="syncnow">⟳ Синхронизировать</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Плитка в шторке</h2>
+    <label class="f">Что делает плитка «SWDS»<select id="tile"></select></label>
+    <p class="muted">Добавьте плитку: опустите шторку → ✏️ → перетащите «SWDS». Быстрые действия настраиваются в SWDS на странице «Телефон».</p>
+  </div>
+
+  <div class="card">
+    <h2>О приложении</h2>
+    <div class="row"><div class="t"><b>SWDS Pocket</b><small id="ver2"></small></div>
+      <button class="btn sm" id="upd">Обновления</button></div>
+    <div class="btns"><button class="btn danger full" id="unpair">Отвязать телефон от SWDS</button></div>
+  </div>
+</div>
+<script>
+let st = P.state();
+const hello = st.hello || {};
+function render() {
+  st = P.state();
+  $("ver").textContent = (st.server_name || "SWDS") + " · " + (st.active_server || "");
+  $("ver2").textContent = "Версия " + st.version + " · устройство " + (st.device_id || "—");
+  $("srv").textContent = st.active_server || "—";
+  $("servers").value = (st.servers || []).join("\n");
+  $("dname").value = st.device_name || "";
+  $("push").checked = !!st.persistent_push;
+  $("rdev").checked = !!st.report_device;
+  $("rloc").checked = !!st.report_location;
+  $("rfiles").checked = !!st.receive_files;
+  const pm = st.perms || {};
+  $("perm-n").innerHTML = pm.notifications ? '<span class="pill ok">разрешены</span>' : '<span class="pill warn">запрещены — уведомления не будут видны</span>';
+  $("perm-b").innerHTML = pm.battery ? '<span class="pill ok">без ограничений</span>' : 'Android может усыплять соединение — <span class="pill warn">ограничено</span>';
+  $("loc-st").innerHTML = pm.location ? (pm.background_location ? '<span class="pill ok">доступ всегда</span>' : '<span class="pill">только когда приложение открыто</span>')
+    : "Для модуля «Геолокация» и зон. Нужен доступ к геоданным.";
+  $("stor-row").classList.toggle("hide", !!pm.storage);
+  renderRules(); renderTile();
+}
+function places() {
+  const pl = (hello.places || []).filter(p => p.key !== "shared");
+  return [{ key: "shared", name: "Общая папка", icon: "📱" }, { key: "auto", name: "Разложить само", icon: "🪄" }].concat(pl);
+}
+function placeName(k) { const p = places().find(x => x.key === k); return p ? p.icon + " " + p.name : k; }
+function renderRules() {
+  const rules = st.sync_rules || [];
+  $("rules").innerHTML = rules.length ? rules.map(r => `<div class="row"><div class="t"><b>📁 ${esc(r.name)}</b>
+    <small>→ ${esc(placeName(r.dest))}${r.dest === "shared" ? " / " + esc(r.path || "С телефона/" + r.name) : ""}${
+      r.last_sync ? " · последняя: " + new Date(r.last_sync).toLocaleString("ru-RU") : ""}</small></div>
+    <label class="sw"><input type="checkbox" data-en="${r.id}" ${r.enabled !== false ? "checked" : ""}><span></span></label>
+    <button class="btn sm danger" data-del="${r.id}">✕</button></div>`).join("")
+    : '<p class="muted">Пока нет. Новые фото, скриншоты или документы из выбранной папки будут сами уходить на компьютер.</p>';
+  document.querySelectorAll("[data-en]").forEach(i => i.onchange = async () => { await P.call("rule_update", { id: i.dataset.en, enabled: i.checked }); });
+  document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm("Убрать синхронизацию этой папки?")) return;
+    await P.call("rule_update", { id: b.dataset.del, delete: true }); render();
+  });
+}
+function renderTile() {
+  const q = hello.quick || [];
+  const cur = st.tile_command;
+  $("tile").innerHTML = `<option value="-1">⚡ Показать список быстрых действий</option>` +
+    q.map((x, i) => `<option value="${i}" ${cur && cur.command === x.command && JSON.stringify(cur.args || {}) === JSON.stringify(x.args || {}) ? "selected" : ""}>${esc((x.icon || "") + " " + (x.title || x.command))}</option>`).join("");
+}
+$("tile").onchange = async () => {
+  const i = +$("tile").value;
+  await P.call("save", { tile: i < 0 ? null : (hello.quick || [])[i] });
+  toast("Плитка обновлена");
+};
+$("check").onclick = async () => {
+  $("srv-st").textContent = "⏳ Проверяю…";
+  const r = await P.call("check");
+  $("srv-st").innerHTML = r.ok ? `<span class="pill ok">на связи</span> ${r.ms} мс · ${esc(r.user || "")}` : `<span class="pill warn">нет связи</span> ${esc(r.error)}`;
+  render();
+};
+$("save-srv").onclick = async () => {
+  const servers = $("servers").value.split(/\n+/).map(s => s.trim()).filter(Boolean)
+    .map(s => /^https?:\/\//.test(s) ? s : "http://" + s);
+  const r = await P.call("save", { servers, device_name: $("dname").value });
+  toast(r.ok ? "Сохранено" : r.error); render();
+};
+$("push").onchange = () => P.call("save", { persistent_push: $("push").checked });
+$("rdev").onchange = () => P.call("save", { report_device: $("rdev").checked });
+$("rfiles").onchange = () => P.call("save", { receive_files: $("rfiles").checked });
+$("rloc").onchange = async () => {
+  if ($("rloc").checked) {
+    const r = await P.call("permission", { what: "location" });
+    if (!r.granted) { $("rloc").checked = false; return toast("Нет доступа к геоданным"); }
+  }
+  await P.call("save", { report_location: $("rloc").checked }); render();
+};
+$("bgloc").onclick = async () => {
+  const r = await P.call("permission", { what: "location" });
+  if (!r.granted) return toast("Сначала разрешите доступ к геоданным");
+  const b = await P.call("permission", { what: "background_location" });
+  if (!b.granted) { toast("Выберите «Разрешить всегда»"); P.call("app_settings"); }
+  render();
+};
+$("rep").onclick = async () => { const r = await P.call("report_now"); toast(r.ok ? "Отправлено" : r.error); };
+$("nperm").onclick = async () => {
+  const r = await P.call("permission", { what: "notifications" });
+  if (r.granted) P.call("notif_settings");
+  render();
+};
+$("batt").onclick = () => P.call("battery_opt");
+$("test").onclick = () => P.call("test_notify");
+$("stor").onclick = async () => { await P.call("permission", { what: "storage" }); render(); };
+$("upd").onclick = () => P.call("open_url", { url: "https://github.com/SkyWige/SWDS-Pocket/releases/latest" });
+$("unpair").onclick = async () => { if (confirm("Отвязать телефон? Уведомления перестанут приходить.")) await P.call("unpair"); };
+$("syncnow").onclick = async () => { await P.call("sync_now", { what: "all" }); toast("Синхронизация запущена"); };
+
+let pending = null, dest = "shared";
+$("addrule").onclick = async () => {
+  const r = await P.call("pick_folder");
+  if (!r.ok) return;
+  pending = r; dest = "shared";
+  $("nr-name").textContent = "📁 " + r.name;
+  $("nr-path").value = "С телефона/" + r.name;
+  drawDest();
+  $("newrule").classList.remove("hide");
+};
+function drawDest() {
+  $("nr-dest").innerHTML = places().map(p => `<div class="chip ${p.key === dest ? "on" : ""}" data-k="${esc(p.key)}">${esc(p.icon)} ${esc(p.name)}</div>`).join("");
+  document.querySelectorAll("#nr-dest .chip").forEach(c => c.onclick = () => { dest = c.dataset.k; drawDest(); });
+  $("nr-path-l").classList.toggle("hide", dest !== "shared");
+}
+$("nr-cancel").onclick = () => $("newrule").classList.add("hide");
+$("nr-ok").onclick = async () => {
+  await P.call("rule_add", { uri: pending.uri, name: pending.name, dest, path: dest === "shared" ? $("nr-path").value : "", only_new: $("nr-new").checked });
+  $("newrule").classList.add("hide"); toast("Папка добавлена"); render();
+};
+window.addEventListener("focus", render);
+render();
+</script>
+</body></html>

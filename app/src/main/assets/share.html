@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Отправить в SWDS</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+.file { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); }
+.file:first-child { border-top: none; }
+.file .ic { font-size: 22px; } .file .t { flex: 1; min-width: 0; }
+.file .t b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .t small { color: var(--muted); font-size: 12.5px; }
+.file .x { border: none; background: none; color: var(--muted); font-size: 18px; padding: 4px 8px; }
+</style></head>
+<body>
+<div class="top"><h1>📤 Отправить в SWDS</h1><p id="sub">на компьютер</p></div>
+<div class="wrap">
+  <div class="card" id="files-card">
+    <h2 id="files-h">Файлы</h2>
+    <div id="files"></div>
+    <div class="btns"><button class="btn sm" id="more">＋ Ещё файлы</button></div>
+  </div>
+  <div class="card" id="dest-card">
+    <h2>Куда положить</h2>
+    <div class="chips" id="dest"></div>
+    <label class="f" id="path-l">Папка внутри «Телефон»<input type="text" id="path" value="С телефона"></label>
+    <label class="f hide" id="hint-l">Подсказка сортировщику (необязательно)<input type="text" id="hint" placeholder="например: счёт за интернет"></label>
+    <p class="muted" id="dest-help"></p>
+    <button class="btn pri full" id="send">Отправить</button>
+    <div id="res"></div>
+  </div>
+  <div class="card hide" id="text-card">
+    <h2>Текст</h2>
+    <textarea id="text"></textarea>
+    <div class="chips" id="tact" style="margin-top:10px"></div>
+    <button class="btn pri full" id="send-text" style="margin-top:12px">Отправить текст</button>
+    <div id="tres"></div>
+  </div>
+  <button class="btn full" id="close">Закрыть</button>
+</div>
+<script>
+const st = P.state();
+const hello = st.hello || {};
+let items = (st.extra || {}).items || [];
+let dest = "shared";
+const TEXT_ACTIONS = [["inbox", "📥 Во входящие"], ["clipboard", "📋 В буфер ПК"], ["file", "📝 В заметку-файл"], ["assistant", "🎙 Ассистенту"]];
+let tact = hello.text_action || "inbox";
+
+function icon(m, n) {
+  m = m || ""; n = (n || "").toLowerCase();
+  if (m.startsWith("image/")) return "🖼"; if (m.startsWith("video/")) return "🎬"; if (m.startsWith("audio/")) return "🎵";
+  if (m.includes("pdf")) return "📕"; if (/\.(zip|rar|7z)$/.test(n)) return "🗜"; if (n.endsWith(".apk")) return "🤖";
+  return "📄";
+}
+function renderFiles() {
+  $("files-card").classList.toggle("hide", !items.length);
+  $("dest-card").classList.toggle("hide", !items.length);
+  const total = items.reduce((s, x) => s + Math.max(0, x.size || 0), 0);
+  $("files-h").textContent = `Файлы (${items.length}${total ? ", " + human(total) : ""})`;
+  $("files").innerHTML = items.map((f, i) => `<div class="file"><span class="ic">${icon(f.mime, f.name)}</span>
+    <div class="t"><b>${esc(f.name)}</b><small id="st${i}">${esc(f.human || "")}</small><div class="prog hide" id="pg${i}"><i></i></div></div>
+    <button class="x" data-rm="${i}">✕</button></div>`).join("");
+  document.querySelectorAll("[data-rm]").forEach(b => b.onclick = async () => {
+    const r = await P.call("remove", { index: +b.dataset.rm }); items = r.items || []; renderFiles();
+  });
+}
+function places() {
+  const pl = (hello.places || []).filter(p => p.key !== "shared");
+  return [{ key: "shared", name: "Общая папка", icon: "📱" }, { key: "auto", name: "Разложить само", icon: "🪄" }].concat(pl);
+}
+function renderDest() {
+  $("dest").innerHTML = places().map(p => `<div class="chip ${p.key === dest ? "on" : ""}" data-k="${esc(p.key)}">${esc(p.icon)} ${esc(p.name)}</div>`).join("");
+  document.querySelectorAll("#dest .chip").forEach(c => c.onclick = () => { dest = c.dataset.k; renderDest(); });
+  $("path-l").classList.toggle("hide", dest !== "shared");
+  $("hint-l").classList.toggle("hide", dest !== "auto");
+  $("dest-help").textContent = dest === "shared" ? "Файлы появятся на компьютере в папке «Телефон»." :
+    dest === "auto" ? "Сортировщик SWDS сам решит: документы — в Документы, фото — в Изображения и т.д." :
+    "Файл ляжет в стандартную папку SWDS.";
+}
+function renderText() {
+  const t = (st.extra || {}).text || "";
+  $("text-card").classList.toggle("hide", !t && items.length > 0);
+  $("text").value = t;
+  $("tact").innerHTML = TEXT_ACTIONS.map(([k, n]) => `<div class="chip ${k === tact ? "on" : ""}" data-k="${k}">${n}</div>`).join("");
+  document.querySelectorAll("#tact .chip").forEach(c => c.onclick = () => { tact = c.dataset.k; renderText(); });
+}
+P.on("items", d => { items = d.items || []; renderFiles(); $("text-card").classList.add("hide"); });
+P.on("progress", d => {
+  const pg = $("pg" + d.index); if (!pg) return;
+  pg.classList.remove("hide");
+  pg.firstChild.style.width = (d.total > 0 ? Math.min(100, d.done * 100 / d.total) : 50) + "%";
+  $("st" + d.index).textContent = human(d.done) + (d.total > 0 ? " из " + human(d.total) : "");
+});
+P.on("done", d => {
+  const s = $("st" + d.index); if (!s) return;
+  s.innerHTML = d.ok ? `<span class="pill ok">✓</span> ${esc(d.where || "")}` : `<span class="pill warn">ошибка</span> ${esc(d.error || "")}`;
+});
+$("send").onclick = async () => {
+  $("send").disabled = true; $("send").textContent = "⏳ Отправляю…";
+  const r = await P.call("upload", { dest, path: dest === "shared" ? $("path").value : "", hint: $("hint").value });
+  $("send").disabled = false; $("send").textContent = "Отправить";
+  if (r.ok) {
+    $("res").innerHTML = `<div class="ok">✅ ${esc(r.message)}</div>`;
+    if (r.all_ok) setTimeout(() => P.call("close"), 1300);
+  } else $("res").innerHTML = `<div class="err">${esc(r.error)}</div>`;
+};
+$("send-text").onclick = async () => {
+  const text = $("text").value.trim(); if (!text) return;
+  $("send-text").disabled = true;
+  const r = await P.call("send_text", { text, action: tact });
+  $("send-text").disabled = false;
+  $("tres").innerHTML = r.ok ? `<div class="ok">✅ ${esc(r.message || "Отправлено")}</div>` : `<div class="err">${esc(r.error)}</div>`;
+  if (r.ok && !items.length) setTimeout(() => P.call("close"), 1300);
+};
+$("more").onclick = () => P.call("pick");
+$("close").onclick = () => P.call("close");
+$("sub").textContent = "на " + (st.server_name || "компьютер");
+renderFiles(); renderDest(); renderText();
+if (!items.length && !((st.extra || {}).text)) { $("files-card").classList.add("hide"); $("dest-card").classList.add("hide"); }
+</script>
+</body></html>

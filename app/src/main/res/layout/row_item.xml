@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/row"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"
+    android:gravity="center_vertical" android:paddingTop="5dp" android:paddingBottom="5dp">
+    <TextView android:id="@+id/icon" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="14sp" android:paddingEnd="8dp" android:textColor="#0F172A" />
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <TextView android:id="@+id/t" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="13.5sp" android:textColor="#0F172A" android:maxLines="2" android:ellipsize="end" />
+        <TextView android:id="@+id/sub" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="11.5sp" android:textColor="#64748B" android:maxLines="1" android:ellipsize="end"
+            android:visibility="gone" />
+    </LinearLayout>
+    <TextView android:id="@+id/right" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="12sp" android:textColor="#64748B" android:paddingStart="8dp" android:maxLines="1" />
+</LinearLayout>

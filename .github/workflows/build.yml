@@ -1,0 +1,61 @@
+name: Сборка APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Ключ подписи из секретов
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$SIGNING_KEYSTORE_B64" ]; then
+            echo "$SIGNING_KEYSTORE_B64" | base64 -d > app/release.jks
+            echo "Подпись: ключ из секретов"
+          else
+            echo "::warning::Секреты SIGNING_KEYSTORE_B64/SIGNING_PASSWORD не заданы — APK подписан запасным ключом"
+          fi
+
+      - name: Сборка
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Имя файла
+        id: apk
+        run: |
+          V=$(grep -m1 version version.properties | cut -d= -f2).${GITHUB_RUN_NUMBER}
+          cp app/build/outputs/apk/release/app-release.apk "SWDS-Pocket-$V.apk"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "file=SWDS-Pocket-$V.apk" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SWDS-Pocket-${{ steps.apk.outputs.version }}
+          path: ${{ steps.apk.outputs.file }}
+
+      - name: Релиз
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.apk.outputs.version }}
+          name: SWDS Pocket ${{ steps.apk.outputs.version }}
+          files: ${{ steps.apk.outputs.file }}
+          make_latest: true

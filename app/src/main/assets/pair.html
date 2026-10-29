@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Привязка</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+.hero { text-align: center; padding: 40px 20px 26px; background: var(--topbar); color: #fff; }
+.logo { width: 76px; height: 76px; border-radius: 22px; margin: 0 auto 14px; background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  display: flex; align-items: center; justify-content: center; font-size: 40px; box-shadow: 0 12px 30px -10px var(--accent); }
+.hero h1 { margin: 0; font-size: 24px; } .hero p { margin: 6px 0 0; opacity: .75; }
+ol { padding-left: 20px; margin: 0; } ol li { margin: 4px 0; }
+.code { letter-spacing: .3em; font-size: 22px; text-align: center; font-weight: 700; }
+</style></head>
+<body>
+<div class="hero"><div class="logo">⚡</div><h1>SWDS Pocket</h1><p>Ваш сервер SWDS — в кармане</p></div>
+<div class="wrap">
+  <div class="card">
+    <h2>Как подключить</h2>
+    <ol class="muted" style="font-size:14px">
+      <li>На компьютере откройте SWDS → модуль <b>«📱 Телефон»</b>.</li>
+      <li>Нажмите <b>«Показать QR-код»</b>.</li>
+      <li>Отсканируйте его кнопкой ниже.</li>
+    </ol>
+    <div class="btns"><button class="btn pri full" id="scan">📷 Сканировать QR-код</button></div>
+    <div id="msg"></div>
+  </div>
+  <div class="card">
+    <h2>Или вручную</h2>
+    <label class="f">Адрес SWDS<input type="url" id="server" placeholder="192.168.1.10:8080" autocapitalize="off"></label>
+    <label class="f">Код с экрана<input type="text" id="code" class="code" inputmode="numeric" maxlength="7" placeholder="000000"></label>
+    <label class="f">Имя телефона<input type="text" id="name"></label>
+    <button class="btn full" id="go">Подключить</button>
+  </div>
+  <p class="muted" style="text-align:center">Телефон и компьютер должны быть в одной сети (или укажите внешний адрес SWDS).</p>
+</div>
+<script>
+const st = P.state();
+$("name").value = st.device_name || "";
+if ((st.servers || [])[0]) $("server").value = st.servers[0];
+function msg(t, ok) { $("msg").innerHTML = `<div class="${ok ? "ok" : "err"}">${esc(t)}</div>`; }
+async function pair(args) {
+  msg("⏳ Подключаюсь…", true);
+  $("go").disabled = $("scan").disabled = true;
+  const r = await P.call("pair", Object.assign({ name: $("name").value }, args));
+  $("go").disabled = $("scan").disabled = false;
+  if (!r.ok) return msg(r.error || "Не удалось подключиться");
+  msg("✅ Готово! Пользователь: " + (r.user || "—"), true);
+  if ((st.perms || {}).notifications === false) await P.call("permission", { what: "notifications" });
+  setTimeout(() => P.call("open_main"), 600);
+}
+$("scan").onclick = async () => {
+  await P.call("permission", { what: "camera" });
+  const r = await P.call("scan");
+  if (r.ok) pair({ link: r.text });
+  else if (r.error) msg(r.error);
+};
+$("go").onclick = () => pair({ server: $("server").value, code: $("code").value });
+const link = (st.extra || {}).link;
+if (link && link.startsWith("swds://pair")) pair({ link });
+</script>
+</body></html>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SWDS</string>
+    <string name="settings">Настройки SWDS</string>
+    <string name="share_label">Отправить в SWDS</string>
+    <string name="widget_label">SWDS</string>
+    <string name="widget_desc">Сводка, задачи, быстрые команды и свои виджеты SWDS</string>
+    <string name="tile_label">SWDS</string>
+    <string name="loading">Загрузка…</string>
+    <string name="empty">Пусто</string>
+</resources>

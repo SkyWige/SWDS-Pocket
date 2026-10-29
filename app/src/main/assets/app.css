@@ -1,0 +1,56 @@
+:root {
+  --bg: #f1f4f9; --surface: #ffffff; --text: #0f172a; --muted: #64748b; --accent: #2563eb; --topbar: #0f172a;
+  --line: color-mix(in srgb, var(--text) 12%, transparent);
+  --soft: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding: 0 0 32px; }
+.top { background: var(--topbar); color: #fff; padding: 22px 18px 18px; }
+.top h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+.top p { margin: 4px 0 0; opacity: .75; font-size: 13.5px; }
+.wrap { padding: 14px 14px 0; max-width: 640px; margin: 0 auto; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+.card h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: none; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-weight: 600; }
+.row .t small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+.muted { color: var(--muted); font-size: 13px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 12px;
+  padding: 12px 16px; font: inherit; font-weight: 600; background: var(--soft); color: var(--accent); cursor: pointer; }
+.btn.pri { background: var(--accent); color: #fff; }
+.btn.full { width: 100%; }
+.btn.sm { padding: 7px 11px; font-size: 13px; border-radius: 10px; }
+.btn.danger { color: #dc2626; background: color-mix(in srgb, #dc2626 10%, transparent); }
+.btn:disabled { opacity: .55; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+input[type=text], input[type=url], input[type=number], textarea, select {
+  width: 100%; padding: 12px 13px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--text) 4%, var(--surface));
+  color: var(--text); font: inherit; outline: none; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+textarea { min-height: 96px; resize: vertical; }
+label.f { display: block; margin: 10px 0; font-size: 13px; font-weight: 600; }
+label.f > input, label.f > select, label.f > textarea { margin-top: 6px; font-weight: 400; }
+.sw { position: relative; width: 46px; height: 28px; flex: none; }
+.sw input { opacity: 0; width: 0; height: 0; }
+.sw span { position: absolute; inset: 0; background: color-mix(in srgb, var(--text) 18%, transparent); border-radius: 99px; transition: .2s; }
+.sw span:before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%;
+  transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.sw input:checked + span { background: var(--accent); }
+.sw input:checked + span:before { transform: translateX(18px); }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; background: var(--soft); color: var(--accent); }
+.pill.warn { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #b45309; }
+.pill.ok { background: color-mix(in srgb, #10b981 16%, transparent); color: #047857; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; cursor: pointer; }
+.chip.on { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 600; }
+.prog { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; margin-top: 6px; }
+.prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 16px;
+  border-radius: 12px; font-size: 14px; z-index: 99; max-width: 90%; text-align: center; }
+.err { color: #dc2626; font-size: 13.5px; margin-top: 8px; }
+.ok { color: #059669; font-size: 13.5px; margin-top: 8px; }
+.hide { display: none !important; }
