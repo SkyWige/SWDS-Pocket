@@ -133,6 +133,18 @@ class MainActivity : Activity() {
             main.post { applyTheme() }
         }.start()
         PushService.start(this)
+        syncFoldersIfStale()
+    }
+
+    /** Открыли приложение — подтянуть изменения папок «в обе стороны», если давно не синхронизировались. */
+    private fun syncFoldersIfStale() {
+        val rules = Prefs(this).syncRules
+        val now = System.currentTimeMillis()
+        val stale = (0 until rules.length()).mapNotNull { rules.optJSONObject(it) }.any {
+            it.optBoolean("enabled", true) && it.optString("mode", FolderSync.UPLOAD) != FolderSync.UPLOAD &&
+                    now - it.optLong("last_sync", 0) > 2 * 60_000
+        }
+        if (stale) SyncWorker.now(this, "folders")
     }
 
     override fun onPause() {

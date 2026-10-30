@@ -11,6 +11,8 @@ import java.io.File
  */
 object OfflineQueue {
     private val lock = Any()
+    /** Одна отправка за раз: её запускают и служба связи, и фоновая синхронизация — иначе команда выполнится дважды. */
+    private val flushLock = java.util.concurrent.locks.ReentrantLock()
     private fun file(ctx: Context) = File(ctx.filesDir, "offline_queue.jsonl")
     private fun dir(ctx: Context) = File(ctx.filesDir, "offline_files").also { it.mkdirs() }
 
@@ -51,6 +53,20 @@ object OfflineQueue {
 
     /** Отправить всё, что можно. Возвращает число отправленных; останавливается на первой ошибке связи. */
     fun flush(ctx: Context): Int {
+        flushLock.lock()
+        try { return flushLocked(ctx) } finally { flushLock.unlock() }
+    }
+
+    /** Убрать из очереди именно этот элемент (а не «первый»: очередь могли очистить или дополнить). */
+    private fun remove(ctx: Context, item: JSONObject): Boolean = synchronized(lock) {
+        val key = item.toString()
+        val list = items(ctx).toMutableList()
+        val i = list.indexOfFirst { it.toString() == key }
+        if (i >= 0) { list.removeAt(i); save(ctx, list) }
+        i >= 0
+    }
+
+    private fun flushLocked(ctx: Context): Int {
         var sent = 0
         val failed = ArrayList<String>()
         while (true) {
@@ -79,7 +95,7 @@ object OfflineQueue {
                 failed.add(it.optString("title") + ": " + (e.message ?: "ошибка"))
                 if (it.optString("type") == "upload") File(it.optString("path")).delete()
             }
-            save(ctx, items(ctx).drop(1))
+            if (!remove(ctx, it)) break                            // очередь изменили снаружи — начнём заново в следующий раз
         }
         if (sent > 0) Notifier.simple(ctx, 3500, "📶 Связь с SWDS восстановлена", "Отправлено из очереди: $sent",
             Notifier.CH_FILES, timeoutMs = 60_000)

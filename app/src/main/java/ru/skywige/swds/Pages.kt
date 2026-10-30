@@ -130,6 +130,7 @@ abstract class LocalPageActivity : Activity() {
                 ok()
             }
             "pair" -> Bridge.pair(this, a)
+            "discover" -> ok(JSONObject().put("servers", org.json.JSONArray(Discovery.scan(this, 2500).map { it.json() })))
             else -> err("Неизвестный метод $method")
         }
     }
@@ -202,6 +203,7 @@ object Bridge {
         p.hello = r
         r.optJSONObject("theme")?.let { p.theme = it }
         r.optString("server_name").takeIf { it.isNotEmpty() }?.let { p.serverName = it }
+        r.optString("server_id").takeIf { it.isNotEmpty() }?.let { p.serverId = it }
         val srv = r.optJSONArray("servers")
         if (srv != null) {
             val list = p.servers.toMutableList()
@@ -249,6 +251,7 @@ object Bridge {
                 p.deviceId = r.optString("device_id")
                 p.deviceName = name
                 p.serverName = r.optString("server_name", "SWDS")
+                p.serverId = r.optString("server_id")
                 p.lastQueueId = 0
                 // старые уведомления из очереди сервера новому телефону не показываем
                 runCatching { hello(act) }.getOrNull()?.let { p.lastQueueId = it.optLong("last_id", 0) }
@@ -345,7 +348,7 @@ class SettingsActivity : LocalPageActivity() {
                 ok()
             }
             "open_assist" -> { main.post { startActivity(Intent(this, AssistActivity::class.java)) }; ok() }
-            "sync_now" -> { SyncWorker.now(this, a.optString("what", "all")); ok() }
+            "sync_now" -> { SyncWorker.now(this, a.optString("what", "all"), manual = true); ok() }
             "unpair" -> {
                 runCatching { Api.post(this, "/modules/mobile/api/report", JSONObject().put("bye", true)) }
                 PushService.stop(this)
@@ -361,16 +364,18 @@ class SettingsActivity : LocalPageActivity() {
                 main.post {
                     await(RC_TREE, id)
                     startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), RC_TREE)
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), RC_TREE)
                 }
                 null
             }
             "rule_add" -> {
                 val rules = p.syncRules
                 rules.put(SyncWorker.newRule(a.optString("uri"), a.optString("name"), a.optString("dest", "shared"),
-                    a.optString("path"), a.optBoolean("only_new", true)))
+                    a.optString("path"), a.optBoolean("only_new", true), a.optString("mode", FolderSync.UPLOAD),
+                    a.optBoolean("wifi_only"), a.optBoolean("charging_only")))
                 p.syncRules = rules
-                SyncWorker.now(this, "folders")
+                SyncWorker.now(this, "folders", manual = true)
                 ok(p.toJson())
             }
             "rule_update" -> {
@@ -380,13 +385,23 @@ class SettingsActivity : LocalPageActivity() {
                     val r = rules.optJSONObject(i) ?: continue
                     if (r.optString("id") == a.optString("id")) {
                         if (a.optBoolean("delete")) {
-                            runCatching { contentResolver.releasePersistableUriPermission(Uri.parse(r.optString("uri")),
-                                Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                            val uri = Uri.parse(r.optString("uri"))
+                            // доступ к папке отпускаем, только если она не нужна другому правилу
+                            val others = (0 until rules.length()).mapNotNull { rules.optJSONObject(it) }
+                                .count { it.optString("uri") == r.optString("uri") }
+                            if (others <= 1) runCatching { contentResolver.releasePersistableUriPermission(uri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+                            FolderSync.forgetRule(this, r.optString("id"))
                             continue
                         }
                         if (a.has("enabled")) r.put("enabled", a.optBoolean("enabled"))
+                        val target = listOf("dest", "path", "mode").any { a.has(it) && a.optString(it) != r.optString(it) }
                         if (a.has("dest")) r.put("dest", a.optString("dest"))
                         if (a.has("path")) r.put("path", a.optString("path"))
+                        if (a.has("mode")) r.put("mode", a.optString("mode"))
+                        if (a.has("wifi_only")) r.put("wifi_only", a.optBoolean("wifi_only"))
+                        if (a.has("charging_only")) r.put("charging_only", a.optBoolean("charging_only"))
+                        if (target) FolderSync.forgetRule(this, r.optString("id"))   // другая папка/режим — сравниваем заново
                     }
                     out.put(r)
                 }
@@ -401,9 +416,12 @@ class SettingsActivity : LocalPageActivity() {
         if (requestCode == RC_TREE) {
             val uri = data?.data
             if (resultCode != RESULT_OK || uri == null) { reply(id, err("Папка не выбрана")); return }
-            runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            // запись нужна для синхронизации в обе стороны; если система её не дала — хотя бы чтение
+            val write = runCatching { contentResolver.takePersistableUriPermission(uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }.isSuccess
+            if (!write) runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val name = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)?.name ?: "Папка"
-            reply(id, ok(JSONObject().put("uri", uri.toString()).put("name", name)))
+            reply(id, ok(JSONObject().put("uri", uri.toString()).put("name", name).put("writable", write)))
         }
     }
 }

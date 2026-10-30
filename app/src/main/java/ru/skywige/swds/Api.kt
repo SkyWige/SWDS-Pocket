@@ -65,6 +65,17 @@ object Api {
     /** Выполнить запрос с перебором адресов. block получает соединение и возвращает результат. */
     fun <T> withServer(ctx: Context, path: String, method: String, timeoutMs: Int = 12000, readTimeoutMs: Int = 30000,
                        block: (HttpURLConnection) -> T): T {
+        try {
+            return attempt(ctx, path, method, timeoutMs, readTimeoutMs, block)
+        } catch (e: ApiException) {
+            // ни один адрес не ответил — может, роутер выдал компьютеру новый IP: ищем SWDS в сети и пробуем ещё раз
+            if (e.status == 0 && Prefs(ctx).paired && Discovery.heal(ctx)) return attempt(ctx, path, method, timeoutMs, readTimeoutMs, block)
+            throw e
+        }
+    }
+
+    private fun <T> attempt(ctx: Context, path: String, method: String, timeoutMs: Int, readTimeoutMs: Int,
+                            block: (HttpURLConnection) -> T): T {
         val p = Prefs(ctx)
         val list = bases(p)
         if (list.isEmpty()) throw ApiException("Телефон не привязан к SWDS")

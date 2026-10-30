@@ -24,6 +24,8 @@ ol { padding-left: 20px; margin: 0; } ol li { margin: 4px 0; }
   </div>
   <div class="card">
     <h2>Или вручную</h2>
+    <button class="btn full" id="find">🔍 Найти SWDS в сети</button>
+    <div id="found"></div>
     <label class="f">Адрес SWDS<input type="url" id="server" placeholder="192.168.1.10:7979" autocapitalize="off"></label>
     <label class="f">Код с экрана<input type="text" id="code" class="code" inputmode="numeric" maxlength="7" placeholder="000000"></label>
     <label class="f">Имя телефона<input type="text" id="name"></label>
@@ -51,6 +53,19 @@ $("scan").onclick = async () => {
   const r = await P.call("scan");
   if (r.ok) pair({ link: r.text });
   else if (r.error) msg(r.error);
+};
+$("find").onclick = async () => {
+  $("find").disabled = true; $("find").textContent = "⏳ Ищу в сети…";
+  const r = await P.call("discover");
+  $("find").disabled = false; $("find").textContent = "🔍 Найти SWDS в сети";
+  const list = (r.servers || []);
+  $("found").innerHTML = list.length ? list.map((s, i) => `<div class="row"><div class="t"><b>🖥 ${esc(s.name)}</b><small>${esc(s.urls[0] || "")}</small></div>
+      <button class="btn sm" data-i="${i}">Выбрать</button></div>`).join("")
+    : '<p class="muted">В этой сети SWDS не найден. Проверьте, что телефон в той же Wi-Fi сети, или введите адрес вручную.</p>';
+  $("found").querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
+    const s = list[+b.dataset.i]; $("server").value = s.urls.find(u => u.startsWith("http://")) || s.urls[0]; $("code").focus();
+  });
+  if (list.length === 1) { const s = list[0]; $("server").value = s.urls.find(u => u.startsWith("http://")) || s.urls[0]; }
 };
 $("go").onclick = () => pair({ server: $("server").value, code: $("code").value });
 const link = (st.extra || {}).link;
