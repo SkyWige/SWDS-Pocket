@@ -30,6 +30,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("device_name", null) ?: (Build.MANUFACTURER + " " + Build.MODEL)
         set(v) = sp.edit().putString("device_name", v).apply()
 
+    /** Постоянный id сервера — по нему автопоиск узнаёт «свой» SWDS, если сменился IP. */
+    var serverId: String
+        get() = sp.getString("server_id", "") ?: ""
+        set(v) = sp.edit().putString("server_id", v).apply()
+
     var serverName: String
         get() = sp.getString("server_name", "SWDS") ?: "SWDS"
         set(v) = sp.edit().putString("server_name", v).apply()
@@ -141,6 +146,8 @@ class Prefs(ctx: Context) {
 
     fun setSyncedState(ruleId: String, v: JSONObject) = sp.edit().putString("synced_$ruleId", v.toString()).apply()
 
+    fun clearSyncedState(ruleId: String) = sp.edit().remove("synced_$ruleId").apply()
+
     fun widgetFor(appWidgetId: Int): JSONObject? =
         sp.getString("widget_$appWidgetId", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
 
@@ -159,7 +166,7 @@ class Prefs(ctx: Context) {
     /** Состояние для страниц настроек (assets). */
     fun toJson(): JSONObject = JSONObject().apply {
         put("servers", JSONArray(servers)); put("active_server", activeServer); put("device_name", deviceName)
-        put("device_id", deviceId); put("server_name", serverName); put("paired", paired)
+        put("device_id", deviceId); put("server_name", serverName); put("paired", paired); put("server_id", serverId)
         put("persistent_push", persistentPush); put("report_location", reportLocation); put("report_device", reportDevice)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)

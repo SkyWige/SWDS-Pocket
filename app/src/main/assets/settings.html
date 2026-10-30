@@ -11,7 +11,7 @@
     <label class="f">Адреса SWDS (по одному в строке; сначала домашний, потом внешний)
       <textarea id="servers" autocapitalize="off" spellcheck="false" style="min-height:80px"></textarea></label>
     <label class="f">Имя телефона<input type="text" id="dname"></label>
-    <button class="btn full" id="save-srv">Сохранить</button>
+    <div class="btns"><button class="btn" id="find-srv">🔍 Найти в сети</button><button class="btn pri" id="save-srv">Сохранить</button></div>
   </div>
 
   <div class="card">
@@ -84,15 +84,23 @@
       <label class="sw"><input type="checkbox" id="rfiles"><span></span></label></div>
     <div class="row hide" id="stor-row"><div class="t"><b>Доступ к памяти</b><small>Нужен на Android 9 и старше для папки Загрузки/SWDS</small></div>
       <button class="btn sm" id="stor">Разрешить</button></div>
-    <h2 style="margin-top:14px">Синхронизация папок → SWDS</h2>
+    <h2 style="margin-top:14px">Синхронизация папок</h2>
     <div id="rules"></div>
     <div class="card hide" id="newrule" style="margin-top:10px;background:var(--bg)">
       <b id="nr-name"></b>
-      <label class="f">Куда отправлять на компьютере</label>
+      <label class="f">Как синхронизировать</label>
+      <div class="chips" id="nr-mode"></div>
+      <small class="muted" id="nr-mode-help" style="display:block;margin:-2px 0 8px"></small>
+      <label class="f">Папка на компьютере</label>
       <div class="chips" id="nr-dest"></div>
-      <label class="f" id="nr-path-l">Подпапка в общей папке<input type="text" id="nr-path"></label>
-      <div class="row"><div class="t"><b>Только новые файлы</b><small>Иначе отправятся и все уже лежащие в папке</small></div>
+      <label class="f" id="nr-path-l">Подпапка<input type="text" id="nr-path"></label>
+      <div class="row" id="nr-new-row"><div class="t"><b>Только новые файлы</b><small>Иначе отправятся и все уже лежащие в папке</small></div>
         <label class="sw"><input type="checkbox" id="nr-new" checked><span></span></label></div>
+      <div class="row"><div class="t"><b>Только по Wi-Fi</b><small>Не тратить мобильный интернет</small></div>
+        <label class="sw"><input type="checkbox" id="nr-wifi"><span></span></label></div>
+      <div class="row"><div class="t"><b>Только на зарядке</b></div>
+        <label class="sw"><input type="checkbox" id="nr-charge"><span></span></label></div>
+      <div id="nr-warn"></div>
       <div class="btns"><button class="btn pri" id="nr-ok">Добавить</button><button class="btn" id="nr-cancel">Отмена</button></div>
     </div>
     <div class="btns"><button class="btn sm" id="addrule">＋ Добавить папку (например, Камера или Скриншоты)</button>
@@ -139,13 +147,25 @@ function places() {
   return [{ key: "shared", name: "Общая папка", icon: "📱" }, { key: "auto", name: "Разложить само", icon: "🪄" }].concat(pl);
 }
 function placeName(k) { const p = places().find(x => x.key === k); return p ? p.icon + " " + p.name : k; }
+const MODES = {
+  two_way: ["⇅", "В обе стороны", "Как Syncthing: изменения, новые и удалённые файлы переносятся в обе стороны. Удалённое не пропадает: на компьютере оно в «.swds-versions», на телефоне — в «.swds-trash» (30 дней)."],
+  upload: ["⬆", "Только на компьютер", "Резервная копия: новые и изменённые файлы уходят на компьютер, на телефоне ничего не меняется и не удаляется."],
+  download: ["⬇", "Только на телефон", "Файлы с компьютера скачиваются на телефон. Удаления не переносятся."],
+};
+function ruleDir(r) {
+  if (r.dest === "auto") return "🪄 разложить само";
+  return placeName(r.dest) + " / " + (r.dest === "shared" ? (r.path || "С телефона/" + r.name) : (r.path || ""));
+}
 function renderRules() {
   const rules = st.sync_rules || [];
-  $("rules").innerHTML = rules.length ? rules.map(r => `<div class="row"><div class="t"><b>📁 ${esc(r.name)}</b>
-    <small>→ ${esc(placeName(r.dest))}${r.dest === "shared" ? " / " + esc(r.path || "С телефона/" + r.name) : ""}${
-      r.last_sync ? " · последняя: " + new Date(r.last_sync).toLocaleString("ru-RU") : ""}</small></div>
+  $("rules").innerHTML = rules.length ? rules.map(r => { const m = MODES[r.dest === "auto" ? "upload" : (r.mode || "upload")];
+    const bad = r.status && r.status !== "ok";
+    return `<div class="row"><div class="t"><b>📁 ${esc(r.name)} <span class="pill">${m[0]} ${esc(m[1])}</span></b>
+    <small>${esc(ruleDir(r))}${r.wifi_only ? " · 📶 Wi-Fi" : ""}${r.charging_only ? " · 🔌 зарядка" : ""}</small>
+    <small>${r.last_sync ? "Последняя: " + new Date(r.last_sync).toLocaleString("ru-RU") : "Ещё не запускалась"}${r.last_text ? " · " + esc(r.last_text) : ""}
+      ${bad ? `<br><span class="pill warn">${esc(r.status)}</span> ${esc(r.last_error || "")}` : ""}</small></div>
     <label class="sw"><input type="checkbox" data-en="${r.id}" ${r.enabled !== false ? "checked" : ""}><span></span></label>
-    <button class="btn sm danger" data-del="${r.id}">✕</button></div>`).join("")
+    <button class="btn sm danger" data-del="${r.id}">✕</button></div>`; }).join("")
     : '<p class="muted">Пока нет. Новые фото, скриншоты или документы из выбранной папки будут сами уходить на компьютер.</p>';
   document.querySelectorAll("[data-en]").forEach(i => i.onchange = async () => { await P.call("rule_update", { id: i.dataset.en, enabled: i.checked }); });
   document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
@@ -170,6 +190,18 @@ $("check").onclick = async () => {
   const r = await P.call("check");
   $("srv-st").innerHTML = r.ok ? `<span class="pill ok">на связи</span> ${r.ms} мс · ${esc(r.user || "")}` : `<span class="pill warn">нет связи</span> ${esc(r.error)}`;
   render();
+};
+$("find-srv").onclick = async () => {
+  const b = $("find-srv"); b.disabled = true; b.textContent = "⏳ Ищу…";
+  const r = await P.call("discover");
+  b.disabled = false; b.textContent = "🔍 Найти в сети";
+  const mine = (r.servers || []).filter(x => !st.server_id || !x.id || x.id === st.server_id);
+  if (!mine.length) return toast("SWDS в этой сети не найден");
+  const cur = $("servers").value.split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const add = mine.flatMap(x => x.urls).filter(u => !cur.includes(u));
+  if (!add.length) return toast("Адреса уже в списке");
+  $("servers").value = add.concat(cur).join("\n");
+  toast("Найдено: " + add.length + " — нажмите «Сохранить»");
 };
 $("save-srv").onclick = async () => {
   const servers = $("servers").value.split(/\n+/).map(s => s.trim()).filter(Boolean)
@@ -207,24 +239,40 @@ $("upd").onclick = () => P.call("open_url", { url: "https://github.com/SkyWige/S
 $("unpair").onclick = async () => { if (confirm("Отвязать телефон? Уведомления перестанут приходить.")) await P.call("unpair"); };
 $("syncnow").onclick = async () => { await P.call("sync_now", { what: "all" }); toast("Синхронизация запущена"); };
 
-let pending = null, dest = "shared";
+let pending = null, dest = "shared", mode = "two_way";
+function drawMode() {
+  const modes = dest === "auto" ? ["upload"] : Object.keys(MODES);
+  if (!modes.includes(mode)) mode = modes[0];
+  $("nr-mode").innerHTML = modes.map(k => `<div class="chip ${k === mode ? "on" : ""}" data-m="${k}">${MODES[k][0]} ${esc(MODES[k][1])}</div>`).join("");
+  document.querySelectorAll("#nr-mode .chip").forEach(c => c.onclick = () => { mode = c.dataset.m; drawMode(); });
+  $("nr-mode-help").textContent = MODES[mode][2];
+  $("nr-new-row").classList.toggle("hide", mode !== "upload");
+  $("nr-warn").innerHTML = pending && pending.writable === false && mode !== "upload"
+    ? '<p class="err">Android не дал права записи в эту папку — для этого режима выберите папку в своей памяти (не системную).</p>' : "";
+}
 $("addrule").onclick = async () => {
   const r = await P.call("pick_folder");
   if (!r.ok) return;
-  pending = r; dest = "shared";
+  pending = r; dest = "shared"; mode = r.writable === false ? "upload" : "two_way";
   $("nr-name").textContent = "📁 " + r.name;
   $("nr-path").value = "С телефона/" + r.name;
-  drawDest();
+  drawDest(); drawMode();
   $("newrule").classList.remove("hide");
 };
 function drawDest() {
   $("nr-dest").innerHTML = places().map(p => `<div class="chip ${p.key === dest ? "on" : ""}" data-k="${esc(p.key)}">${esc(p.icon)} ${esc(p.name)}</div>`).join("");
-  document.querySelectorAll("#nr-dest .chip").forEach(c => c.onclick = () => { dest = c.dataset.k; drawDest(); });
-  $("nr-path-l").classList.toggle("hide", dest !== "shared");
+  document.querySelectorAll("#nr-dest .chip").forEach(c => c.onclick = () => {
+    dest = c.dataset.k;
+    $("nr-path").value = dest === "shared" ? "С телефона/" + pending.name : (dest === "auto" ? "" : pending.name);
+    drawDest(); drawMode();
+  });
+  $("nr-path-l").classList.toggle("hide", dest === "auto");
 }
 $("nr-cancel").onclick = () => $("newrule").classList.add("hide");
 $("nr-ok").onclick = async () => {
-  await P.call("rule_add", { uri: pending.uri, name: pending.name, dest, path: dest === "shared" ? $("nr-path").value : "", only_new: $("nr-new").checked });
+  await P.call("rule_add", { uri: pending.uri, name: pending.name, dest, mode: dest === "auto" ? "upload" : mode,
+    path: dest === "auto" ? "" : $("nr-path").value.trim(), only_new: $("nr-new").checked,
+    wifi_only: $("nr-wifi").checked, charging_only: $("nr-charge").checked });
   $("newrule").classList.add("hide"); toast("Папка добавлена"); render();
 };
 // ── лента, ассистент, вид ──

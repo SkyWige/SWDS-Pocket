@@ -86,7 +86,9 @@ object Notifier {
 
     /** Уведомление SWDS: {id, title, body, level, actions:[{title, command, args, url}], url, silent} */
     fun show(ctx: Context, n: JSONObject) {
-        val qid = n.optLong("id", System.currentTimeMillis()).toInt()
+        // номера 1…9 заняты служебными уведомлениями (связь, файлы, буфер обмена, сводка) — уведомления
+        // сервера идут в своём диапазоне, иначе событие №1 подменило бы «На связи с SWDS»
+        val qid = notifId(n.optLong("id", System.currentTimeMillis()))
         val level = n.optString("level", "info")
         val ch = when (level) { "critical" -> CH_ALERT; "warning" -> CH_WARN; else -> CH_INFO }
         val title = n.optString("title", "SWDS")
@@ -135,6 +137,9 @@ object Notifier {
             .build()
         post(ctx, 9, s)
     }
+
+    const val NOTIF_BASE = 1_000_000
+    fun notifId(serverId: Long): Int = NOTIF_BASE + (serverId % NOTIF_BASE).toInt().let { if (it < 0) -it else it }
 
     private fun askId(pid: String) = 100000 + (pid.hashCode() and 0x7FFFF)
 
