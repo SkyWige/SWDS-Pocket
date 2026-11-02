@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -18,6 +19,9 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
@@ -52,6 +56,9 @@ class MainActivity : Activity() {
     private var pendingPermission: PermissionRequest? = null
     private var loggedIn = false
     private var lastError = 0L
+    private var fsView: View? = null                               // видео во весь экран (Fullscreen API страницы)
+    private var fsCallback: WebChromeClient.CustomViewCallback? = null
+    private var pageImmersive = false                              // страница открыла свой видеоплеер на весь экран
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -155,6 +162,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         if (Events.onTheme != null) Events.onTheme = null
+        removeFullscreenView()
         if (current?.get() === this) { current = null; MediaHub.clearLocal(this) }
         if (::web.isInitialized) runCatching { web.destroy() }
         super.onDestroy()
@@ -162,12 +170,62 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (::web.isInitialized && web.canGoBack()) web.goBack()
+        if (fsView != null) exitFullscreen()
+        else if (pageImmersive) web.evaluateJavascript(JS_PLAYER_BACK, null)   // «Назад» закрывает плеер, а не уводит со страницы
+        else if (::web.isInitialized && web.canGoBack()) web.goBack()
         else if (MediaHub.foreground) moveTaskToBack(true)          // музыка играет — не закрываем, а сворачиваем
         else {
             @Suppress("DEPRECATION")
             super.onBackPressed()
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applyImmersive()                               // системные панели возвращаются после диалогов и смены приложений
+    }
+
+    // ───────── полноэкранное видео ─────────
+    /** Пока идёт видео на весь экран, нижняя навигация и системные панели не должны его перекрывать. */
+    private fun applyImmersive() {
+        if (!::nav.isInitialized) return
+        val on = fsView != null || pageImmersive
+        nav.visibility = if (on) View.GONE else View.VISIBLE
+        if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (on) WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 30) {
+            val c = window.insetsController ?: return
+            if (on) {
+                c.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                c.hide(WindowInsets.Type.systemBars())
+            } else c.show(WindowInsets.Type.systemBars())
+        } else {
+            val hide = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility =
+                if (on) window.decorView.systemUiVisibility or hide else window.decorView.systemUiVisibility and hide.inv()
+        }
+    }
+
+    private fun removeFullscreenView() {
+        val v = fsView ?: return
+        (window.decorView as? ViewGroup)?.removeView(v)
+        fsView = null
+        fsCallback = null
+        applyImmersive()
+    }
+
+    /** Выход по кнопке «Назад»: WebView сообщит странице, что полноэкранный режим закрыт. */
+    private fun exitFullscreen() {
+        val cb = fsCallback
+        removeFullscreenView()
+        cb?.onCustomViewHidden()
     }
 
     private fun pathFrom(i: Intent?): String? {
@@ -287,6 +345,7 @@ class MainActivity : Activity() {
         web.setBackgroundColor(pal.bg)
         bar.progressTintList = android.content.res.ColorStateList.valueOf(pal.accent)
         highlight(web.url)
+        applyImmersive()
     }
 
     // ───────── WebView ─────────
@@ -313,6 +372,7 @@ class MainActivity : Activity() {
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             bar.visibility = View.VISIBLE
             highlight(url)
+            if (pageImmersive) { pageImmersive = false; applyImmersive() }  // новая страница — панель снова нужна
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
@@ -351,6 +411,18 @@ class MainActivity : Activity() {
     }
 
     inner class Chrome : WebChromeClient() {
+        // Без этой пары WebView считает, что приложение не умеет полный экран: requestFullscreen() на странице не срабатывает.
+        override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+            if (fsView != null) { callback.onCustomViewHidden(); return }
+            fsView = view
+            fsCallback = callback
+            view.setBackgroundColor(Color.BLACK)
+            (window.decorView as ViewGroup).addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            applyImmersive()
+        }
+
+        override fun onHideCustomView() = removeFullscreenView()
+
         override fun onProgressChanged(view: WebView, newProgress: Int) {
             bar.progress = newProgress
             bar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
@@ -464,6 +536,8 @@ class MainActivity : Activity() {
         @JavascriptInterface fun server(): String = base()
         /** swds_now_playing.js: что играет в плеере SWDS на этой странице → медиа-уведомление. */
         @JavascriptInterface fun media(json: String) = MediaHub.onLocal(this@MainActivity, json)
+        /** Плеер медиатеки открыт или закрыт: на это время страница занимает весь экран, без нижней панели. */
+        @JavascriptInterface fun immersive(on: Boolean) = main.post { pageImmersive = on; applyImmersive() }
         /** offline.html: последняя сводка «Сегодня» и очередь. */
         @JavascriptInterface fun cache(): String = org.json.JSONObject()
             .put("today", runCatching { org.json.JSONObject(Prefs(this@MainActivity).todayCache) }.getOrNull() ?: org.json.JSONObject.NULL)
@@ -481,6 +555,9 @@ class MainActivity : Activity() {
             val a = current?.get() ?: return
             a.main.post { if (!a.isFinishing) a.web.evaluateJavascript(code, null) }
         }
+        /** «Назад» при открытом плеере: страница может быть и во фрейме хоста (swds_host.js). */
+        private const val JS_PLAYER_BACK = """(function(){var n='swds:pocket-back';window.dispatchEvent(new Event(n));
+            var f=document.getElementById('swds-frame');try{if(f&&f.contentWindow)f.contentWindow.dispatchEvent(new Event(n))}catch(e){}})()"""
         const val RC_FILE = 31
         const val RC_PERM = 32
         const val RC_MIC = 33
