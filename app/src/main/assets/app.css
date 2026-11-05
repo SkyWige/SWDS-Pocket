@@ -11,6 +11,10 @@ body { padding: 0 0 32px; }
 .top h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
 .top p { margin: 4px 0 0; opacity: .75; font-size: 13.5px; }
 .wrap { padding: 14px 14px 0; max-width: 640px; margin: 0 auto; }
+.sec-tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; background: var(--bg); scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.sec-tabs::-webkit-scrollbar { display: none; }
+.sec-tabs button { flex: none; padding: 9px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; }
+.sec-tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
 .card h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
 .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }

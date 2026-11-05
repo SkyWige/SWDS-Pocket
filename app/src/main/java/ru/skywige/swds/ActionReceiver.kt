@@ -76,6 +76,7 @@ class ActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             A_RING_STOP -> Ring.stop(app)
             MediaHub.A_MEDIA -> MediaHub.command(app, intent.getStringExtra("cmd") ?: "play_pause")
+            RemoteAudio.A_CMD -> RemoteAudio.command(app, intent.getStringExtra("cmd") ?: "toggle")
             A_ANSWER -> {
                 val pid = intent.getStringExtra("pid") ?: return
                 val reply = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(Notifier.KEY_REPLY)?.toString()

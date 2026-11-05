@@ -280,6 +280,8 @@ class PairActivity : LocalPageActivity() {
 class SettingsActivity : LocalPageActivity() {
     override val page = "settings"
 
+    override fun extraState(): JSONObject = JSONObject().put("section", intent?.getStringExtra("section") ?: "")
+
     override fun handle(id: String, method: String, a: JSONObject): JSONObject? {
         val p = Prefs(this)
         return when (method) {
@@ -406,6 +408,7 @@ class SettingsActivity : LocalPageActivity() {
                     out.put(r)
                 }
                 p.syncRules = out
+                FolderSync.report(this, out)
                 ok(p.toJson())
             }
             else -> super.handle(id, method, a)

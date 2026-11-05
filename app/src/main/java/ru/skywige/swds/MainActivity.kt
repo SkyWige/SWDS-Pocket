@@ -36,7 +36,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import java.net.HttpURLConnection
@@ -64,8 +63,8 @@ class MainActivity : Activity() {
 
     private val TABS = listOf(
         Triple("☀️", "Сегодня", "/"),
-        Triple("🧩", "Модули", "/ui/modules"),
-        Triple("🎙", "Ассистент", "/ui/assistant"),
+        Triple("🎛", "Пульт", "/modules/mobile/remote"),
+        Triple("🎬", "Медиа", "/modules/media_manager/window"),
         Triple("📂", "Файлы", "/modules/mobile/window#files"),
         Triple("☰", "Ещё", "")
     )
@@ -295,34 +294,80 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun more(anchor: View) {
-        val m = PopupMenu(this, anchor)
-        val items = listOf(
-            "🔔 Уведомления" to "/modules/notifications/window",
-            "🎛 Пульт ПК" to "/modules/mobile/remote",
-            "🎙 Ассистент поверх экрана" to "#assist",
-            "📲 Лента уведомлений" to "/modules/mobile/window#feed",
-            "⚡ Команды" to "/ui/commands",
-            "🤖 Планировщик" to "/ui/scheduler",
-            "📱 Телефон и общая папка" to "/modules/mobile/window",
-            "🧩 Виджеты" to "/modules/desktop_widgets/window",
-            "🎨 Темы" to "/modules/theme_manager/window",
-            "📤 Отправить файл на ПК" to "#send",
-            "🔄 Обновить страницу" to "#reload",
-            "⚙ Настройки приложения" to "#settings"
+    /** «Ещё»: всё приложение одним списком по разделам, снизу экрана. */
+    private fun more(@Suppress("UNUSED_PARAMETER") anchor: View) {
+        val pal = Theme.palette(this)
+        val groups = listOf(
+            "Телефон и компьютер" to listOf(
+                "🎛  Пульт: мышь, клавиатура, экран ПК" to "/modules/mobile/remote",
+                "📤  Отправить файл на ПК" to "#send",
+                "🔄  Синхронизация папок" to "#sync",
+                "📲  Лента уведомлений телефона" to "/modules/mobile/window#feed",
+                "📱  Телефон и общая папка" to "/modules/mobile/window"
+            ),
+            "SWDS" to listOf(
+                "🎙  Ассистент" to "#assist",
+                "🧩  Все модули" to "/ui/modules",
+                "🔔  Уведомления" to "/modules/notifications/window",
+                "⚡  Команды" to "/ui/commands",
+                "🤖  Автоматизации" to "/ui/scheduler",
+                "🧱  Виджеты" to "/modules/desktop_widgets/window",
+                "🎨  Темы" to "/modules/theme_manager/window"
+            ),
+            "Приложение" to listOf(
+                "⚙  Настройки" to "#settings",
+                "⟳  Обновить страницу" to "#reload"
+            )
         )
-        items.forEachIndexed { i, (t, _) -> m.menu.add(0, i, i, t) }
-        m.setOnMenuItemClickListener { mi ->
-            when (val target = items[mi.itemId].second) {
-                "#settings" -> startActivity(Intent(this, SettingsActivity::class.java))
-                "#reload" -> web.reload()
-                "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
-                "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
-                else -> open(target)
-            }
-            true
+        val dlg = android.app.Dialog(this)
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(12), dp(10), dp(20))
         }
-        m.show()
+        for ((title, items) in groups) {
+            list.addView(TextView(this).apply {
+                text = title.uppercase(); textSize = 11f; letterSpacing = 0.07f
+                setTextColor(pal.muted); setTypeface(null, Typeface.BOLD)
+                setPadding(dp(12), dp(12), dp(12), dp(6))
+            })
+            for ((label, target) in items) {
+                list.addView(TextView(this).apply {
+                    text = label; textSize = 16f; setTextColor(pal.text); gravity = Gravity.CENTER_VERTICAL
+                    minHeight = dp(48); setPadding(dp(12), 0, dp(12), 0)
+                    val tv = android.util.TypedValue()
+                    theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
+                    setBackgroundResource(tv.resourceId)
+                    setOnClickListener { dlg.dismiss(); openTarget(target) }
+                })
+            }
+        }
+        val sheet = android.widget.ScrollView(this).apply {
+            addView(list)
+            background = GradientDrawable().apply {
+                setColor(pal.surface)
+                val r = dp(20).toFloat()
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+            }
+        }
+        dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dlg.setContentView(sheet)
+        dlg.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setGravity(Gravity.BOTTOM)
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        dlg.show()
+    }
+
+    private fun openTarget(target: String) {
+        when (target) {
+            "#settings" -> startActivity(Intent(this, SettingsActivity::class.java))
+            "#sync" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "sync"))
+            "#reload" -> web.reload()
+            "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
+            "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
+            else -> open(target)
+        }
     }
 
     private fun applyTheme() {
@@ -544,6 +589,8 @@ class MainActivity : Activity() {
             .put("queue", OfflineQueue.count(this@MainActivity))
             .put("feed", FeedStore.pendingCount(this@MainActivity)).toString()
         @JavascriptInterface fun assistant() = main.post { startActivity(Intent(this@MainActivity, AssistActivity::class.java)) }
+        @JavascriptInterface fun openSync() = main.post { startActivity(Intent(this@MainActivity, SettingsActivity::class.java).putExtra("section", "sync")) }
+        @JavascriptInterface fun deviceName(): String = Prefs(this@MainActivity).deviceName
     }
 
     companion object {
@@ -554,6 +601,16 @@ class MainActivity : Activity() {
         fun runJs(code: String) {
             val a = current?.get() ?: return
             a.main.post { if (!a.isFinishing) a.web.evaluateJavascript(code, null) }
+        }
+        /** Запуск с сервера: очередь — в плеер SWDS на странице, а если страница не наша — отдельная страница плеера. */
+        fun playQueue(e: org.json.JSONObject) {
+            val a = current?.get() ?: return
+            val js = "(function(){var g=window.GlobalMediaPlayer;if(!g)return false;g.playQueue(" + e.optJSONArray("items") +
+                "," + e.optInt("index", 0) + ",{repeat:" + org.json.JSONObject.quote(e.optString("repeat", "off")) + "});return true})()"
+            a.main.post {
+                if (a.isFinishing) return@post
+                a.web.evaluateJavascript(js) { r -> if (r != "true") a.open(e.optString("page")) }
+            }
         }
         /** «Назад» при открытом плеере: страница может быть и во фрейме хоста (swds_host.js). */
         private const val JS_PLAYER_BACK = """(function(){var n='swds:pocket-back';window.dispatchEvent(new Event(n));

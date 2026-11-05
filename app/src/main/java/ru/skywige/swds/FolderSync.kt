@@ -41,6 +41,7 @@ object FolderSync {
 
     data class LFile(val rel: String, val size: Long, val mtime: Long, val docId: String)
     data class RFile(val rel: String, val size: Long, val mtime: Double)
+    class RemoteIndex(val exists: Boolean, val files: HashMap<String, RFile>, val dirs: Set<String>, val ignore: List<String>)
     data class Base(val lsize: Long, val lmtime: Long, val rsize: Long, val rmtime: Double)
 
     class Stats {
@@ -258,7 +259,26 @@ object FolderSync {
     // ───────────────────────── сервер ─────────────────────────
     private fun q(s: String) = Api.enc(s)
 
-    private fun remoteIndex(ctx: Context, root: String, dir: String): Pair<Boolean, HashMap<String, RFile>> {
+    /** Как sync.ignored на сервере: «*.tmp» — по имени или пути; «cache/» — папка на любом уровне. */
+    internal fun ignored(rel: String, rules: List<String>): Boolean {
+        val parts = rel.split('/')
+        for (r in rules) {
+            if (r.endsWith("/")) {
+                if (r.dropLast(1) in parts.dropLast(1) || glob(r + "*").matches(rel + "/")) return true
+            } else if (glob(r).matches(parts.last()) || glob(r).matches(rel)) return true
+        }
+        return false
+    }
+
+    private fun glob(pattern: String): Regex = Regex(buildString {
+        for (c in pattern) when (c) {
+            '*' -> append(".*")
+            '?' -> append('.')
+            else -> append(Regex.escape(c.toString()))
+        }
+    })
+
+    private fun remoteIndex(ctx: Context, root: String, dir: String): RemoteIndex {
         val r = Api.get(ctx, "/modules/mobile/api/sync/index?root=${q(root)}&path=${q(dir)}", 60_000)
         val out = HashMap<String, RFile>()
         val arr = r.optJSONArray("files")
@@ -267,7 +287,11 @@ object FolderSync {
             val rel = o.optString("rel")
             if (rel.isNotEmpty()) out[rel] = RFile(rel, o.optLong("size"), o.optDouble("mtime"))
         }
-        return r.optBoolean("exists", true) to out
+        fun strings(name: String): List<String> {
+            val a = r.optJSONArray(name) ?: return emptyList()
+            return (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() }
+        }
+        return RemoteIndex(r.optBoolean("exists", true), out, strings("dirs").toSet(), strings("ignore"))
     }
 
     private fun remotePath(dir: String, rel: String) = if (dir.isEmpty()) rel else "$dir/$rel"
@@ -376,8 +400,29 @@ object FolderSync {
                 fresh.put(i, r)
             }
             p.syncRules = fresh
+            report(ctx, fresh)
         } finally { busy.unlock() }
         return ok
+    }
+
+    /** Состояние папок — на сервер: страница «Телефон» показывает его, а сервер будит телефон при изменениях на ПК. */
+    fun report(ctx: Context, rules: org.json.JSONArray) {
+        val app = ctx.applicationContext
+        Thread {
+            runCatching {
+                val arr = org.json.JSONArray()
+                for (i in 0 until rules.length()) {
+                    val r = rules.optJSONObject(i) ?: continue
+                    arr.put(JSONObject().put("id", r.optString("id")).put("name", r.optString("name"))
+                        .put("root", remoteRoot(r)).put("path", if (r.optString("dest") == "auto") "" else remoteDir(r))
+                        .put("mode", if (r.optString("dest") == "auto") UPLOAD else r.optString("mode", UPLOAD))
+                        .put("enabled", r.optBoolean("enabled", true)).put("status", r.optString("status"))
+                        .put("error", r.optString("last_error")).put("last_sync", r.optLong("last_sync"))
+                        .put("last_text", r.optString("last_text")))
+                }
+                Api.post(app, "/modules/mobile/api/sync/status", JSONObject().put("rules", arr))
+            }
+        }.start()
     }
 
     private fun syncRule(ctx: Context, p: Prefs, rule: JSONObject, st: Stats) {
@@ -393,8 +438,13 @@ object FolderSync {
             throw ApiException("Нет права записи в папку на телефоне — удалите её и добавьте заново (раньше доступ давался только на чтение)")
 
         val local = scanLocal(ctx, tree)
-        val (remoteExists, remote) = remoteIndex(ctx, root, dir)
-        val base = loadBase(ctx, id)
+        val index = remoteIndex(ctx, root, dir)
+        val remoteExists = index.exists
+        val remote = index.files
+        val allBase = loadBase(ctx, id)
+        val base = HashMap(allBase.filterKeys { !it.endsWith("/") })         // записи вида «папка/» — про пустые папки
+        val dirBase = allBase.keys.filter { it.endsWith("/") }.map { it.dropLast(1) }.toSet()
+        if (index.ignore.isNotEmpty()) local.files.keys.removeAll { ignored(it, index.ignore) }
 
         // защита от «удалить всё»: папку отключили (SD-карта) или переименовали на компьютере
         val allowDelRemote = mode == TWO_WAY && !(local.files.isEmpty() && base.isNotEmpty())
@@ -465,7 +515,47 @@ object FolderSync {
                 st.errors.add("$rel: ${e.message ?: e}")
             }
         }
+        if (mode != UPLOAD) runCatching { syncDirs(ctx, id, mode, root, dir, local, index, dirBase, allowDelLocal, allowDelRemote) }
+            .onFailure { e -> if (e is ApiException && (e.status == 401 || OfflineQueue.isOffline(e))) throw e else st.errors.add("папки: ${e.message ?: e}") }
         if (mode == TWO_WAY) cleanTrash(ctx, local)
+    }
+
+    /** Папки, в том числе пустые: новые появляются на другой стороне, удалённые (если пусты) исчезают. */
+    private fun syncDirs(ctx: Context, id: String, mode: String, root: String, dir: String, local: Local, index: RemoteIndex,
+                         base: Set<String>, allowDelLocal: Boolean, allowDelRemote: Boolean) {
+        val ldirs = local.dirs.keys.filter { it.isNotEmpty() && it != TRASH && !ignored("$it/x", index.ignore) }.toSet()
+        val rdirs = index.dirs
+        val all = (ldirs + rdirs + base).toSortedSet()
+        fun remember(d: String) = putBase(ctx, id, "$d/", Base(0, 0, 0, 0.0))
+        fun emptyLocal(d: String) = local.files.keys.none { it.startsWith("$d/") } && local.dirs.keys.none { it != d && it.startsWith("$d/") }
+        // сначала самые глубокие: родитель опустеет, когда уйдут вложенные
+        for (d in all.toList().asReversed()) {
+            val inL = d in ldirs; val inR = d in rdirs; val known = d in base
+            when {
+                !inL && !inR -> if (known) dropBase(ctx, id, "$d/")
+                mode == TWO_WAY && inL && !inR && known && allowDelLocal && emptyLocal(d) -> {
+                    local.dirs[d]?.let { runCatching { DocumentsContract.deleteDocument(ctx.contentResolver, docUri(local, it)) } }
+                    local.dirs.remove(d)
+                    dropBase(ctx, id, "$d/")
+                }
+                mode == TWO_WAY && !inL && inR && known && allowDelRemote -> {
+                    runCatching { Api.post(ctx, "/modules/mobile/api/sync/rmdir", JSONObject().put("root", root).put("path", remotePath(dir, d))) }
+                    dropBase(ctx, id, "$d/")
+                }
+            }
+        }
+        for (d in all) {
+            val inL = d in local.dirs; val inR = d in rdirs; val known = d in base
+            if (known && (!inL || !inR)) continue                  // одна сторона удалила — решено выше
+            when {
+                inL && inR -> remember(d)
+                inR -> { ensureDir(ctx, local, d); remember(d) }
+                inL && mode == TWO_WAY -> {
+                    Api.post(ctx, "/modules/mobile/api/sync/mkdir", JSONObject().put("root", root).put("path", remotePath(dir, d)))
+                    remember(d)
+                }
+            }
+        }
     }
 
     private fun twoWay(rel: String, l: LFile?, r: RFile?, b: Base?,
