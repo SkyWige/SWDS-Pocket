@@ -313,7 +313,7 @@ class SettingsActivity : LocalPageActivity() {
                 if (a.has("assist_voice")) p.assistVoice = a.optString("assist_voice", "phone")
                 if (a.has("widget_colors")) {
                     p.widgetColors = a.optString("widget_colors", "swds")
-                    SwdsWidget.refreshAll(this); ButtonWidget.renderAll(this); QuickWidget.renderAll(this)
+                    SwdsWidget.refreshAll(this); ButtonWidget.renderAll(this); QuickWidget.renderAll(this); RemoteWidget.renderAll(this)
                 }
                 if (a.has("remote_media")) { p.remoteMedia = a.optBoolean("remote_media"); main.post { MediaHub.update(applicationContext) } }
                 ok(p.toJson())
