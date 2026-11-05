@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Быстрая запись</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+body { margin: 0; }
+.q { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; box-sizing: border-box; padding: 12px 14px 14px; gap: 10px; }
+.q-tabs { display: flex; gap: 6px; align-items: center; }
+.q-tab { flex: 1; border: 1px solid var(--line); background: none; color: var(--text); border-radius: 12px; padding: 10px; font-size: 15px; font-weight: 600; }
+.q-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.q-x { border: none; background: none; color: var(--muted); font-size: 20px; padding: 6px 10px; }
+.q-pane { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+#text { flex: 1; min-height: 130px; font-size: 17px; line-height: 1.4; }
+.q-sub { font-size: 12.5px; color: var(--muted); }
+.q-amount { display: flex; align-items: center; gap: 8px; }
+.q-amount input { font-size: 34px; font-weight: 700; padding: 10px 12px; text-align: center; flex: 1; min-width: 0; }
+.q-amount span { font-size: 18px; color: var(--muted); }
+.q-cats { display: flex; flex-wrap: wrap; gap: 6px; overflow: auto; max-height: 34vh; }
+.q-cat { border: 1px solid var(--line); background: none; color: var(--text); border-radius: 99px; padding: 8px 12px; font-size: 14px; }
+.q-cat.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.q-row { display: flex; gap: 8px; }
+.q-row > * { flex: 1; min-width: 0; }
+.q-foot { display: flex; gap: 8px; }
+.q-foot .btn { padding: 14px; font-size: 16px; }
+.q-foot .pri { flex: 2; }
+.q-foot .sec { flex: 1; }
+.q-msg { min-height: 18px; font-size: 13px; color: var(--muted); text-align: center; }
+.q-msg.err { color: #dc2626; }
+.hide { display: none !important; }
+</style></head>
+<body>
+<div class="q">
+  <div class="q-tabs">
+    <button class="q-tab" id="t-note" type="button">📝 Заметка</button>
+    <button class="q-tab" id="t-expense" type="button">💸 Трата</button>
+    <button class="q-x" id="x" type="button" aria-label="Закрыть">✕</button>
+  </div>
+
+  <div class="q-pane" id="p-note">
+    <textarea id="text" placeholder="Что записать?"></textarea>
+    <div class="chips" id="dest"></div>
+    <div class="q-sub" id="dest-help"></div>
+  </div>
+
+  <div class="q-pane hide" id="p-expense">
+    <div class="q-amount"><input id="amount" type="text" inputmode="decimal" placeholder="0" autocomplete="off"><span id="cur"></span></div>
+    <div class="q-cats" id="cats"></div>
+    <input id="cat-free" type="text" class="hide" placeholder="Категория">
+    <input id="note" type="text" placeholder="Заметка (необязательно)">
+    <div class="q-row"><select id="acc" aria-label="Счёт"></select><select id="day" aria-label="Когда"><option value="0">Сегодня</option><option value="1">Вчера</option><option value="2">Позавчера</option></select></div>
+  </div>
+
+  <div class="q-msg" id="msg"></div>
+  <div class="q-foot">
+    <button class="btn sec" id="more" type="button">＋ Ещё</button>
+    <button class="btn pri" id="save" type="button">Сохранить</button>
+  </div>
+</div>
+<script>
+const st = P.state(), ex = st.extra || {};
+applyTheme(st.css);
+let mode = ex.mode === "expense" ? "expense" : "note", dest = ex.dest || "inbox", meta = ex.meta || {}, cat = "";
+const DESTS = [["inbox", "📥 Во входящие", "Разберёте сами или Ассистент — решит, задача это, заметка или что-то ещё."],
+               ["notes", "📝 Сразу в Заметки", "Первая строка станет названием."]];
+function msg(t, bad) { const m = $("msg"); m.textContent = t || ""; m.classList.toggle("err", !!bad); }
+function showMode(m) {
+  mode = m;
+  $("t-note").classList.toggle("on", m === "note"); $("t-expense").classList.toggle("on", m === "expense");
+  $("p-note").classList.toggle("hide", m !== "note"); $("p-expense").classList.toggle("hide", m !== "expense");
+  msg(ex.queued ? `В очереди ждут отправки: ${ex.queued}` : "");
+  setTimeout(() => (m === "note" ? $("text") : $("amount")).focus(), 60);
+}
+function renderDest() {
+  $("dest").innerHTML = DESTS.map(d => `<button class="chip ${d[0] === dest ? "on" : ""}" type="button" data-d="${d[0]}">${d[1]}</button>`).join("");
+  $("dest-help").textContent = (DESTS.find(d => d[0] === dest) || [])[2] || "";
+}
+$("dest").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; dest = b.dataset.d; renderDest(); P.call("set_dest", { dest }); };
+function renderMeta() {
+  const cats = meta.categories || [], accs = meta.accounts || [];
+  $("cats").innerHTML = cats.map(c => `<button class="q-cat ${c.name === cat ? "on" : ""}" type="button" data-c="${esc(c.name)}">${esc(c.icon || "")} ${esc(c.name)}</button>`).join("");
+  $("cat-free").classList.toggle("hide", cats.length > 0);
+  const sel = $("acc"), keep = sel.value;
+  sel.innerHTML = accs.length ? accs.map(a => `<option value="${esc(a.name)}">${esc(a.icon || "")} ${esc(a.name)}</option>`).join("") : `<option value="">Счёт по умолчанию</option>`;
+  const def = accs.find(a => a.id === meta.default_account);
+  if (keep && accs.some(a => a.name === keep)) sel.value = keep; else if (def) sel.value = def.name;
+  $("cur").textContent = (accs.find(a => a.name === sel.value) || {}).currency || meta.base_currency || "";
+}
+$("acc").onchange = renderMeta;
+$("cats").onclick = e => { const b = e.target.closest("[data-c]"); if (!b) return; cat = cat === b.dataset.c ? "" : b.dataset.c; renderMeta(); };
+function ymd(back) { const d = new Date(Date.now() - back * 86400000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+async function save(stay) {
+  let body;
+  if (mode === "note") {
+    const text = $("text").value.trim();
+    if (!text) { $("text").focus(); return; }
+    body = { kind: "note", text, dest };
+  } else {
+    const amount = parseFloat($("amount").value.replace(",", "."));
+    if (!(amount > 0)) { $("amount").focus(); msg("Сколько потратили?", true); return; }
+    body = { kind: "expense", amount, category: cat || $("cat-free").value.trim(), note: $("note").value.trim(), account: $("acc").value, date: ymd(+$("day").value) };
+  }
+  $("save").disabled = $("more").disabled = true;
+  msg("Сохраняю…");
+  const r = await P.call("submit", body);
+  $("save").disabled = $("more").disabled = false;
+  if (!r.ok) { msg(r.error || "Не получилось", true); return; }
+  if (!stay) { toast(r.message || "Записано"); setTimeout(() => P.call("close"), r.queued ? 1200 : 400); return; }
+  $("text").value = ""; $("amount").value = ""; $("note").value = ""; cat = ""; renderMeta();
+  msg(r.message || "Записано");
+  (mode === "note" ? $("text") : $("amount")).focus();
+}
+$("save").onclick = () => save(false);
+$("more").onclick = () => save(true);
+$("t-note").onclick = () => showMode("note");
+$("t-expense").onclick = () => showMode("expense");
+$("x").onclick = () => P.call("close");
+renderDest(); renderMeta(); showMode(mode);
+P.call("meta").then(r => { if (r.ok && r.meta) { meta = r.meta; renderMeta(); } });
+</script>
+</body></html>

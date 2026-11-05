@@ -59,6 +59,16 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("report_device", true)
         set(v) = sp.edit().putBoolean("report_device", v).apply()
 
+    /** Куда попадают быстрые заметки: inbox (разобрать потом) или notes (сразу в Заметки). */
+    var quickDest: String
+        get() = sp.getString("quick_dest", "inbox") ?: "inbox"
+        set(v) = sp.edit().putString("quick_dest", if (v == "notes") "notes" else "inbox").apply()
+
+    /** Счета и категории Кошелька на случай, когда связи нет. */
+    var quickMeta: JSONObject
+        get() = runCatching { JSONObject(sp.getString("quick_meta", "{}") ?: "{}") }.getOrDefault(JSONObject())
+        set(v) = sp.edit().putString("quick_meta", v.toString()).apply()
+
     var receiveFiles: Boolean
         get() = sp.getBoolean("receive_files", true)
         set(v) = sp.edit().putBoolean("receive_files", v).apply()
@@ -173,7 +183,7 @@ class Prefs(ctx: Context) {
         put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))
         put("feed_last_sent", feedLastSent); put("assist_auto_listen", assistAutoListen); put("assist_speak", assistSpeak)
         put("assist_engine", assistEngine); put("assist_voice", assistVoice); put("widget_colors", widgetColors)
-        put("remote_media", remoteMedia)
+        put("remote_media", remoteMedia); put("quick_dest", quickDest)
     }
 
     companion object {
