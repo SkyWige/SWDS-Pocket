@@ -8,6 +8,10 @@
     <string name="tile_label">SWDS</string>
     <string name="loading">Загрузка…</string>
     <string name="empty">Пусто</string>
+    <string name="remote_label">SWDS · подключение</string>
+    <string name="remote_desc">Подключиться к компьютеру или показать экран телефона</string>
+    <string name="remote_a11y_label">SWDS Pocket: управление</string>
+    <string name="remote_a11y_desc">Передаёт касания и текст с другого вашего устройства, пока вы сами разрешили показ экрана. Без активного сеанса ничего не делает.</string>
     <string name="quick_label">SWDS · быстрая запись</string>
     <string name="quick_desc">Заметка или трата одним касанием, работает и без связи</string>
     <string name="quick_note">Заметка</string>

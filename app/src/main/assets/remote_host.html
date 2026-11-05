@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Подключение к телефону</title><link rel="stylesheet" href="app.css"><script src="app.js"></script></head>
+<body>
+<div class="top"><h1 id="h">📡 Показать этот телефон</h1><p id="sub"></p></div>
+<div class="wrap">
+  <div class="card" id="touch-card">
+    <h2>👆 Управление касаниями</h2>
+    <div id="touch-on" class="hide"><p class="muted">Включено: с другого устройства можно нажимать и печатать.</p></div>
+    <div id="touch-off" class="hide">
+      <p class="muted">Сейчас будет только просмотр. Чтобы нажимать с другого устройства, включите службу «SWDS Pocket» в «Спец. возможностях».</p>
+      <div class="btns"><button class="btn sm" id="open-a11y">Открыть настройки</button></div>
+      <p class="muted" style="margin:10px 0 0">Служба неактивна в списке? Android ограничивает такие настройки у приложений не из магазина: в «О приложении» нажмите ⋮ → «Разрешить ограниченные настройки».</p>
+      <div class="btns"><button class="btn sm" id="open-app">О приложении</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <p class="muted" id="what">Android спросит разрешение на показ экрана. Пока показ идёт, в шторке висит уведомление с кнопкой «Остановить». Содержимое экрана, включая пароли и сообщения, будет видно на другом устройстве.</p>
+    <button class="btn pri full" id="allow">Разрешить</button>
+    <button class="btn full" id="stop" style="display:none">Остановить показ</button>
+    <button class="btn full" id="deny" style="margin-top:8px">Отмена</button>
+    <div id="res" class="muted"></div>
+  </div>
+</div>
+<script>
+const st = P.state(), ex = st.extra || {};
+applyTheme(st.css);
+if (ex.sid) { $("h").textContent = "🖥 Запрос на подключение"; $("sub").textContent = `${ex.from || "Другое устройство"} хочет подключиться к этому телефону`; $("deny").textContent = "Отклонить"; }
+else $("sub").textContent = "К телефону можно будет подключиться с компьютера в модуле «Устройства»";
+function paint(touch, running) {
+  $("touch-on").classList.toggle("hide", !touch); $("touch-off").classList.toggle("hide", !!touch);
+  $("allow").style.display = running ? "none" : ""; $("stop").style.display = running ? "" : "none";
+  if (running) $("what").textContent = "Экран показывается. Нажмите «Остановить», чтобы прекратить.";
+}
+paint(ex.touch, ex.running && !ex.sid);
+$("allow").onclick = async () => {
+  $("allow").disabled = true;
+  const r = await P.call("allow");
+  $("allow").disabled = false;
+  if (!r.ok) $("res").textContent = r.error || "Не получилось";
+};
+$("deny").onclick = () => P.call("deny");
+$("stop").onclick = async () => { await P.call("stop"); P.call("close"); };
+$("open-a11y").onclick = () => P.call("touch_settings");
+$("open-app").onclick = () => P.call("app_settings");
+document.addEventListener("visibilitychange", async () => { if (!document.hidden) { const r = await P.call("status"); if (r.ok) paint(r.touch, r.running && !ex.sid); } });
+</script>
+</body></html>

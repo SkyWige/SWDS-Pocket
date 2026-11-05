@@ -582,6 +582,9 @@ class MainActivity : Activity() {
         /** swds_now_playing.js: что играет в плеере SWDS на этой странице → медиа-уведомление. */
         @JavascriptInterface fun media(json: String) = MediaHub.onLocal(this@MainActivity, json)
         /** Плеер медиатеки открыт или закрыт: на это время страница занимает весь экран, без нижней панели. */
+        /** Страница «Устройства»: разрешить подключиться к этому телефону. */
+        @JavascriptInterface fun remoteShare() = main.post { startActivity(RemoteHostActivity.intent(this@MainActivity)) }
+
         @JavascriptInterface fun immersive(on: Boolean) = main.post { pageImmersive = on; applyImmersive() }
         /** offline.html: последняя сводка «Сегодня» и очередь. */
         @JavascriptInterface fun cache(): String = org.json.JSONObject()

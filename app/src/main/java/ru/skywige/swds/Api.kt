@@ -126,6 +126,20 @@ object Api {
             result(conn)
         }
 
+    /** GET со своими таймаутами: для долгого ожидания событий. */
+    fun withServerGet(ctx: Context, path: String, timeoutMs: Int, readTimeoutMs: Int): JSONObject =
+        withServer(ctx, path, "GET", timeoutMs, readTimeoutMs) { result(it) }
+
+    /** POST двоичных данных (кадр экрана). */
+    fun postBytes(ctx: Context, path: String, data: ByteArray, type: String, timeoutMs: Int, readTimeoutMs: Int): JSONObject =
+        withServer(ctx, path, "POST", timeoutMs, readTimeoutMs) { conn ->
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", type)
+            conn.setFixedLengthStreamingMode(data.size)
+            conn.outputStream.use { it.write(data) }
+            result(conn)
+        }
+
     /** Выполнить команду SWDS (как /api/execute). */
     fun execute(ctx: Context, command: String, args: JSONObject = JSONObject()): JSONObject {
         val r = post(ctx, "/api/execute", JSONObject().put("name", command).put("args", args))

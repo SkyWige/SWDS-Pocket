@@ -83,7 +83,7 @@ object Events {
                 "theme" -> {
                     e.optJSONObject("theme")?.let { p.theme = it }
                     SwdsWidget.refreshAll(app)
-                    ButtonWidget.renderAll(app); QuickWidget.renderAll(app)
+                    ButtonWidget.renderAll(app); QuickWidget.renderAll(app); RemoteWidget.renderAll(app)
                     main.post { onTheme?.invoke() }
                 }
                 "sync" -> SyncWorker.now(app, "all")
@@ -97,6 +97,8 @@ object Events {
                         "Подключите к ней папку телефона, и файлы будут синхронизироваться", Notifier.CH_FILES, pi)
                 }
                 "media_play" -> RemotePlay.handle(app, e)
+                "remote_request" -> RemoteHost.onRequest(app, e)
+                "remote_end" -> RemoteHost.onEnd(app, e.optString("sid"))
                 "media" -> MediaHub.onRemote(app, e)
                 "unpaired" -> {
                     p.unpair()
