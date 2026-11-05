@@ -72,6 +72,13 @@
   </div>
 
   <div class="card" data-sec="data">
+    <h2>⚡ Быстрая запись</h2>
+    <p class="muted">Заметка или трата с виджета «SWDS · быстрая запись» и из меню значка приложения. Без связи запись подождёт в очереди.</p>
+    <div class="chips" id="quick-dest"></div>
+    <p class="muted" id="quick-help" style="margin:8px 0 0"></p>
+    <div class="btns" style="margin-top:10px"><button class="btn sm" id="quick-note">📝 Заметка</button><button class="btn sm" id="quick-money">💸 Трата</button></div>
+  </div>
+  <div class="card" data-sec="data">
     <h2>📴 Без связи</h2>
     <div class="row"><div class="t"><b>Очередь отправки</b><small id="q-st">—</small></div>
       <button class="btn sm" id="q-flush">Отправить</button><button class="btn sm danger" id="q-clear">✕</button></div>
@@ -374,6 +381,19 @@ $("as-engine").onchange = async () => {
 $("as-voice").onchange = () => P.call("save", { assist_voice: $("as-voice").value });
 $("wc").onchange = async () => { await P.call("save", { widget_colors: $("wc").value }); toast("Виджеты перекрашены"); };
 $("rmedia").onchange = () => P.call("save", { remote_media: $("rmedia").checked });
+(function () {
+  const OPTS = [["inbox", "📥 Во входящие", "Заметка ждёт во Входящих: разберёте сами или Ассистент решит, задача это или заметка. Автораскладка включается в модуле «Входящие»."],
+                ["notes", "📝 Сразу в Заметки", "Заметка сразу попадает в модуль «Заметки», первая строка — название."]];
+  let dest = (st.quick_dest || "inbox");
+  const paint = () => {
+    $("quick-dest").innerHTML = OPTS.map(o => `<button class="chip ${o[0] === dest ? "on" : ""}" data-d="${o[0]}" type="button">${o[1]}</button>`).join("");
+    $("quick-help").textContent = OPTS.find(o => o[0] === dest)[2];
+  };
+  $("quick-dest").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; dest = b.dataset.d; paint(); P.call("save", { quick_dest: dest }); };
+  $("quick-note").onclick = () => P.call("open_quick", { mode: "note" });
+  $("quick-money").onclick = () => P.call("open_quick", { mode: "expense" });
+  paint();
+})();
 $("q-flush").onclick = async () => { const r = await P.call("queue_flush"); toast(r.ok ? `Отправлено: ${r.sent}, осталось: ${r.left}` : r.error); renderExtra(); };
 $("q-clear").onclick = async () => { if (confirm("Удалить всё из очереди?")) { await P.call("queue_clear"); renderExtra(); } };
 

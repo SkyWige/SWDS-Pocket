@@ -66,7 +66,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="swds" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <activity
+            android:name=".QuickActivity"
+            android:exported="true"
+            android:label="@string/quick_label"
+            android:theme="@style/Theme.Swds.Sheet"
+            android:excludeFromRecents="true"
+            android:taskAffinity="ru.skywige.swds.quick"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
 
         <activity
             android:name=".PairActivity"
@@ -209,6 +219,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_button_info" />
+        </receiver>
+
+        <receiver
+            android:name=".QuickWidget"
+            android:exported="false"
+            android:label="@string/quick_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_info" />
         </receiver>
 
         <receiver android:name=".ActionReceiver" android:exported="false" />

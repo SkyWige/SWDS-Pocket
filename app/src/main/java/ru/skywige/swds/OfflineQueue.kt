@@ -19,6 +19,9 @@ object OfflineQueue {
     /** Ошибка «нет связи» (а не ответ сервера с ошибкой) — значит, стоит повторить позже. */
     fun isOffline(e: Throwable?): Boolean = e is ApiException && e.status == 0 && !(e.message ?: "").contains("не привязан")
 
+    /** Сервер есть, но сейчас не может принять запись (модуль перезапускается, ошибка 5xx). */
+    fun isServerTrouble(e: Throwable?): Boolean = e is ApiException && e.status >= 500
+
     fun items(ctx: Context): List<JSONObject> = synchronized(lock) {
         val f = file(ctx)
         if (!f.exists()) emptyList() else f.readLines().filter { it.isNotBlank() }.mapNotNull { runCatching { JSONObject(it) }.getOrNull() }
@@ -41,6 +44,12 @@ object OfflineQueue {
 
     fun addText(ctx: Context, text: String, action: String) =
         add(ctx, JSONObject().put("type", "text").put("text", text).put("action", action).put("title", text.take(60)))
+
+    const val QUICK_PATH = "/modules/mobile/api/quick"
+
+    /** Быстрая запись (заметка, трата). В body уже есть client_id: повторная отправка не создаст дубль. */
+    fun addQuick(ctx: Context, body: JSONObject, title: String) =
+        add(ctx, JSONObject().put("type", "quick").put("body", body).put("title", title))
 
     /** Файл копируется во внутреннюю папку — исходный content:// может перестать быть доступен. */
     fun addUpload(ctx: Context, uri: Uri, name: String, mime: String, fields: Map<String, String>) {
@@ -78,6 +87,7 @@ object OfflineQueue {
                     "cmd" -> Api.execute(ctx, it.optString("command"), it.optJSONObject("args") ?: JSONObject())
                     "text" -> Api.post(ctx, "/modules/mobile/api/text", JSONObject().put("text", it.optString("text"))
                         .put("action", it.optString("action")))
+                    "quick" -> Api.post(ctx, QUICK_PATH, it.optJSONObject("body") ?: JSONObject())
                     "upload" -> {
                         val f = File(it.optString("path"))
                         if (f.exists()) {
@@ -92,6 +102,8 @@ object OfflineQueue {
                 sent++
             } catch (e: Exception) {
                 if (isOffline(e)) break                                  // связи всё ещё нет — подождём
+                // запись человека не теряем из-за временной ошибки сервера
+                if (it.optString("type") == "quick" && isServerTrouble(e)) break
                 failed.add(it.optString("title") + ": " + (e.message ?: "ошибка"))
                 if (it.optString("type") == "upload") File(it.optString("path")).delete()
             }

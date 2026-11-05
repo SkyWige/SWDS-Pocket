@@ -83,7 +83,7 @@ object Events {
                 "theme" -> {
                     e.optJSONObject("theme")?.let { p.theme = it }
                     SwdsWidget.refreshAll(app)
-                    ButtonWidget.renderAll(app)
+                    ButtonWidget.renderAll(app); QuickWidget.renderAll(app)
                     main.post { onTheme?.invoke() }
                 }
                 "sync" -> SyncWorker.now(app, "all")

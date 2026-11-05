@@ -294,6 +294,7 @@ class SettingsActivity : LocalPageActivity() {
                 if (a.has("report_location")) p.reportLocation = a.optBoolean("report_location")
                 if (a.has("report_device")) p.reportDevice = a.optBoolean("report_device")
                 if (a.has("receive_files")) p.receiveFiles = a.optBoolean("receive_files")
+                if (a.has("quick_dest")) p.quickDest = a.optString("quick_dest")
                 if (a.has("servers")) {
                     val arr = a.optJSONArray("servers") ?: JSONArray()
                     p.servers = (0 until arr.length()).map { arr.optString(it).trim().trimEnd('/') }.filter { it.isNotEmpty() }
@@ -312,7 +313,7 @@ class SettingsActivity : LocalPageActivity() {
                 if (a.has("assist_voice")) p.assistVoice = a.optString("assist_voice", "phone")
                 if (a.has("widget_colors")) {
                     p.widgetColors = a.optString("widget_colors", "swds")
-                    SwdsWidget.refreshAll(this); ButtonWidget.renderAll(this)
+                    SwdsWidget.refreshAll(this); ButtonWidget.renderAll(this); QuickWidget.renderAll(this)
                 }
                 if (a.has("remote_media")) { p.remoteMedia = a.optBoolean("remote_media"); main.post { MediaHub.update(applicationContext) } }
                 ok(p.toJson())
@@ -342,6 +343,7 @@ class SettingsActivity : LocalPageActivity() {
             "queue" -> ok(JSONObject().put("items", JSONArray(OfflineQueue.items(this).map { it.optString("title") })))
             "queue_flush" -> ok(JSONObject().put("sent", OfflineQueue.flush(this)).put("left", OfflineQueue.count(this)))
             "queue_clear" -> { OfflineQueue.clear(this); ok() }
+            "open_quick" -> { startActivity(QuickActivity.intent(this, a.optString("mode", "note"))); ok() }
             "assist_default" -> {
                 main.post {
                     val ok = runCatching { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }.isSuccess
