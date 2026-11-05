@@ -27,6 +27,15 @@ class PushService : Service() {
     private val wake = Object()
     private var netCb: ConnectivityManager.NetworkCallback? = null
     private var lastText = ""
+    private val mainH = android.os.Handler(android.os.Looper.getMainLooper())
+    private val folderRun = Runnable { if (Prefs(this).syncRules.length() > 0) SyncWorker.now(this, "folders") }
+    /** Появилось новое фото или файл — через минуту синхронизируем папки, не дожидаясь планового запуска. */
+    private val filesObserver = object : android.database.ContentObserver(mainH) {
+        override fun onChange(selfChange: Boolean) {
+            mainH.removeCallbacks(folderRun)
+            mainH.postDelayed(folderRun, 60_000)
+        }
+    }
     private val powerRx = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { reportAsync(1500) }
     }
@@ -47,6 +56,7 @@ class PushService : Service() {
             addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED)
         }
         runCatching { ContextCompat.registerReceiver(this, powerRx, f, ContextCompat.RECEIVER_EXPORTED) }
+        runCatching { contentResolver.registerContentObserver(android.provider.MediaStore.Files.getContentUri("external"), true, filesObserver) }
     }
 
     private fun reportAsync(delayMs: Long = 0) {
@@ -73,6 +83,8 @@ class PushService : Service() {
         kick(false)
         netCb?.let { runCatching { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) } }
         runCatching { unregisterReceiver(powerRx) }
+        runCatching { contentResolver.unregisterContentObserver(filesObserver) }
+        mainH.removeCallbacks(folderRun)
         super.onDestroy()
     }
 

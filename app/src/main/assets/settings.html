@@ -3,8 +3,16 @@
 <title>Настройки</title><link rel="stylesheet" href="app.css"><script src="app.js"></script></head>
 <body>
 <div class="top"><h1>⚙ Настройки</h1><p id="ver"></p></div>
+<div class="sec-tabs" id="sec-tabs">
+  <button data-s="link" class="on">📡 Связь</button>
+  <button data-s="sync">🔄 Папки</button>
+  <button data-s="notify">🔔 Уведомления</button>
+  <button data-s="assist">🎙 Ассистент</button>
+  <button data-s="view">🎨 Вид</button>
+  <button data-s="data">📊 Данные</button>
+</div>
 <div class="wrap">
-  <div class="card">
+  <div class="card" data-sec="link">
     <h2>Сервер</h2>
     <div class="row"><div class="t"><b id="srv">—</b><small id="srv-st">Связь не проверялась</small></div>
       <button class="btn sm" id="check">Проверить</button></div>
@@ -14,7 +22,7 @@
     <div class="btns"><button class="btn" id="find-srv">🔍 Найти в сети</button><button class="btn pri" id="save-srv">Сохранить</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="notify">
     <h2>Уведомления</h2>
     <div class="row"><div class="t"><b>Мгновенная доставка</b><small>Постоянное соединение с сервером. Без него уведомления приходят раз в 15 минут.</small></div>
       <label class="sw"><input type="checkbox" id="push"><span></span></label></div>
@@ -25,7 +33,7 @@
     <div class="btns"><button class="btn sm" id="test">🧪 Тестовое уведомление</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="notify">
     <h2>📲 Лента уведомлений → SWDS</h2>
     <div class="row"><div class="t"><b>Собирать уведомления телефона</b><small>Банк, SMS, мессенджеры — копятся в ленте устройства на сервере.
       Модули (например, кошелёк) смогут их разбирать.</small></div>
@@ -40,7 +48,7 @@
     <div id="feed-apps" class="hide" style="max-height:340px;overflow:auto;margin-top:8px"></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="assist">
     <h2>🎙 Ассистент</h2>
     <div class="row"><div class="t"><b>Ассистент по долгому нажатию «Домой»</b><small>Выберите SWDS в «Цифровой помощник» / «Помощник и голосовой ввод»</small></div>
       <button class="btn sm" id="as-def">Настроить</button></div>
@@ -55,7 +63,7 @@
     <div class="btns"><button class="btn sm" id="as-open">🎙 Открыть ассистента</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="view">
     <h2>🎨 Вид и медиа</h2>
     <label class="f" id="wc-l">Цвета виджетов
       <select id="wc"><option value="swds">Тема SWDS</option><option value="wallpaper">Цвета обоев (Material You)</option></select></label>
@@ -63,13 +71,13 @@
       <label class="sw"><input type="checkbox" id="rmedia"><span></span></label></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="data">
     <h2>📴 Без связи</h2>
     <div class="row"><div class="t"><b>Очередь отправки</b><small id="q-st">—</small></div>
       <button class="btn sm" id="q-flush">Отправить</button><button class="btn sm danger" id="q-clear">✕</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="data">
     <h2>Что телефон сообщает серверу</h2>
     <div class="row"><div class="t"><b>Заряд, зарядка, Wi-Fi</b><small>События для автоматизаций: «мало заряда», «пришёл домой (Wi-Fi)», «поставил на зарядку»</small></div>
       <label class="sw"><input type="checkbox" id="rdev"><span></span></label></div>
@@ -78,13 +86,22 @@
     <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="sync">
     <h2>Файлы</h2>
     <div class="row"><div class="t"><b>Принимать файлы с компьютера</b><small>Всё из папки «Телефон/На телефон» скачивается в Загрузки/SWDS</small></div>
       <label class="sw"><input type="checkbox" id="rfiles"><span></span></label></div>
     <div class="row hide" id="stor-row"><div class="t"><b>Доступ к памяти</b><small>Нужен на Android 9 и старше для папки Загрузки/SWDS</small></div>
       <button class="btn sm" id="stor">Разрешить</button></div>
-    <h2 style="margin-top:14px">Синхронизация папок</h2>
+  </div>
+
+  <div class="card" data-sec="sync">
+    <h2>Папки компьютера</h2>
+    <p class="muted" style="margin:0 0 6px">Папки, которые открыты для синхронизации в SWDS («Телефон» → «Синхронизация»). Подключите к ним папку этого телефона: у других устройств может быть своя, файлы дойдут через компьютер.</p>
+    <div id="sf-list"></div>
+  </div>
+
+  <div class="card" data-sec="sync">
+    <h2>Синхронизируются сейчас</h2>
     <div id="rules"></div>
     <div class="card hide" id="newrule" style="margin-top:10px;background:var(--bg)">
       <b id="nr-name"></b>
@@ -107,13 +124,13 @@
       <button class="btn sm" id="syncnow">⟳ Синхронизировать</button></div>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="view">
     <h2>Плитка в шторке</h2>
     <label class="f">Что делает плитка «SWDS»<select id="tile"></select></label>
     <p class="muted">Добавьте плитку: опустите шторку → ✏️ → перетащите «SWDS». Быстрые действия настраиваются в SWDS на странице «Телефон».</p>
   </div>
 
-  <div class="card">
+  <div class="card" data-sec="link">
     <h2>О приложении</h2>
     <div class="row"><div class="t"><b>SWDS Pocket</b><small id="ver2"></small></div>
       <button class="btn sm" id="upd">Обновления</button></div>
@@ -140,11 +157,31 @@ function render() {
   $("loc-st").innerHTML = pm.location ? (pm.background_location ? '<span class="pill ok">доступ всегда</span>' : '<span class="pill">только когда приложение открыто</span>')
     : "Для модуля «Геолокация» и зон. Нужен доступ к геоданным.";
   $("stor-row").classList.toggle("hide", !!pm.storage);
-  renderRules(); renderTile();
+  renderRules(); renderFolders(); renderTile();
+}
+// ── разделы ──
+function showSection(k) {
+  document.querySelectorAll("#sec-tabs button").forEach(b => b.classList.toggle("on", b.dataset.s === k));
+  document.querySelectorAll("[data-sec]").forEach(c => c.classList.toggle("hide", c.dataset.sec !== k));
+  try { localStorage.setItem("set.sec", k); } catch (e) { /* */ }
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("#sec-tabs button").forEach(b => b.onclick = () => showSection(b.dataset.s));
+function renderFolders() {
+  const list = (hello.places || []).filter(p => p.sync);
+  const rules = st.sync_rules || [];
+  $("sf-list").innerHTML = list.length ? list.map(p => {
+    const used = rules.find(r => r.dest === p.key);
+    return `<div class="row"><div class="t"><b>${esc(p.icon || "🔄")} ${esc(p.name)}</b>
+      <small>${used ? "Подключена: на телефоне «" + esc(used.name) + "»" : "Не подключена на этом телефоне"}</small></div>
+      ${used ? '<span class="pill ok">✓</span>' : `<button class="btn sm pri" data-conn="${esc(p.key)}">Подключить</button>`}</div>`;
+  }).join("") : '<p class="muted">Пока нет. Заведите папку в SWDS: «Телефон» → «Синхронизация» → «＋ Папка». Можно и без этого: кнопка ниже синхронизирует с общей папкой.</p>';
+  document.querySelectorAll("[data-conn]").forEach(b => b.onclick = () => startRule(b.dataset.conn));
 }
 function places() {
   const pl = (hello.places || []).filter(p => p.key !== "shared");
-  return [{ key: "shared", name: "Общая папка", icon: "📱" }, { key: "auto", name: "Разложить само", icon: "🪄" }].concat(pl);
+  return [{ key: "shared", name: "Общая папка", icon: "📱" }, { key: "auto", name: "Разложить само", icon: "🪄" }]
+    .concat(pl.filter(p => p.sync), pl.filter(p => !p.sync));
 }
 function placeName(k) { const p = places().find(x => x.key === k); return p ? p.icon + " " + p.name : k; }
 const MODES = {
@@ -154,6 +191,7 @@ const MODES = {
 };
 function ruleDir(r) {
   if (r.dest === "auto") return "🪄 разложить само";
+  if (String(r.dest).startsWith("sf:")) return placeName(r.dest);
   return placeName(r.dest) + " / " + (r.dest === "shared" ? (r.path || "С телефона/" + r.name) : (r.path || ""));
 }
 function renderRules() {
@@ -237,7 +275,7 @@ $("test").onclick = () => P.call("test_notify");
 $("stor").onclick = async () => { await P.call("permission", { what: "storage" }); render(); };
 $("upd").onclick = () => P.call("open_url", { url: "https://github.com/SkyWige/SWDS-Pocket/releases/latest" });
 $("unpair").onclick = async () => { if (confirm("Отвязать телефон? Уведомления перестанут приходить.")) await P.call("unpair"); };
-$("syncnow").onclick = async () => { await P.call("sync_now", { what: "all" }); toast("Синхронизация запущена"); };
+$("syncnow").onclick = async () => { await P.call("sync_now", { what: "folders" }); toast("Синхронизация запущена"); };
 
 let pending = null, dest = "shared", mode = "two_way";
 function drawMode() {
@@ -250,23 +288,26 @@ function drawMode() {
   $("nr-warn").innerHTML = pending && pending.writable === false && mode !== "upload"
     ? '<p class="err">Android не дал права записи в эту папку — для этого режима выберите папку в своей памяти (не системную).</p>' : "";
 }
-$("addrule").onclick = async () => {
+const pathFor = (k, name) => k === "shared" ? "С телефона/" + name : (k === "auto" || k.startsWith("sf:")) ? "" : name;
+async function startRule(key) {
   const r = await P.call("pick_folder");
   if (!r.ok) return;
-  pending = r; dest = "shared"; mode = r.writable === false ? "upload" : "two_way";
+  pending = r; dest = key || "shared"; mode = r.writable === false ? "upload" : "two_way";
   $("nr-name").textContent = "📁 " + r.name;
-  $("nr-path").value = "С телефона/" + r.name;
+  $("nr-path").value = pathFor(dest, r.name);
   drawDest(); drawMode();
   $("newrule").classList.remove("hide");
-};
+  $("newrule").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+$("addrule").onclick = () => startRule();
 function drawDest() {
   $("nr-dest").innerHTML = places().map(p => `<div class="chip ${p.key === dest ? "on" : ""}" data-k="${esc(p.key)}">${esc(p.icon)} ${esc(p.name)}</div>`).join("");
   document.querySelectorAll("#nr-dest .chip").forEach(c => c.onclick = () => {
     dest = c.dataset.k;
-    $("nr-path").value = dest === "shared" ? "С телефона/" + pending.name : (dest === "auto" ? "" : pending.name);
+    $("nr-path").value = pathFor(dest, pending.name);
     drawDest(); drawMode();
   });
-  $("nr-path-l").classList.toggle("hide", dest === "auto");
+  $("nr-path-l").classList.toggle("hide", dest === "auto" || dest.startsWith("sf:"));
 }
 $("nr-cancel").onclick = () => $("newrule").classList.add("hide");
 $("nr-ok").onclick = async () => {
@@ -339,5 +380,11 @@ $("q-clear").onclick = async () => { if (confirm("Удалить всё из о�
 window.addEventListener("focus", () => { render(); renderExtra(); });
 render();
 renderExtra();
+(function () {
+  let k = (st.extra || {}).section;
+  if (!k) { try { k = localStorage.getItem("set.sec"); } catch (e) { /* */ } }
+  showSection(k && document.querySelector(`#sec-tabs [data-s="${k}"]`) ? k : "link");
+  P.call("hello").then(r => { if (r.ok) { Object.assign(hello, r); renderFolders(); renderTile(); } });
+})();
 </script>
 </body></html>

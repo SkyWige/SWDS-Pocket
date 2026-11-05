@@ -87,6 +87,16 @@ object Events {
                     main.post { onTheme?.invoke() }
                 }
                 "sync" -> SyncWorker.now(app, "all")
+                "sync_folders" -> SyncWorker.now(app, "folders")
+                "sync_offer" -> {
+                    runCatching { Bridge.hello(app) }
+                    val pi = android.app.PendingIntent.getActivity(app, 3090,
+                        Intent(app, SettingsActivity::class.java).putExtra("section", "sync").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+                    Notifier.simple(app, 3090, "🔄 Новая папка: ${e.optString("name")}",
+                        "Подключите к ней папку телефона, и файлы будут синхронизироваться", Notifier.CH_FILES, pi)
+                }
+                "media_play" -> RemotePlay.handle(app, e)
                 "media" -> MediaHub.onRemote(app, e)
                 "unpaired" -> {
                     p.unpair()
