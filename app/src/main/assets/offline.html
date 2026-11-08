@@ -209,7 +209,8 @@ function renderNotes() {
   if (q) ns = ns.filter(n => ((n.title || "") + " " + (n.body || "")).toLowerCase().includes(q));
   $("notes").innerHTML = ns.length ? ns.slice(0, 200).map(n => {
     const cl = checklist(n.body);
-    const ex = (n.body || "").replace(/[#*`>_\[\]-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+    const ex = (n.body || "").replace(/^\s*[-*]\s+\[[ xX]\]\s*/gm, "• ").replace(/\[\[([^\]|]+)(\|[^\]]*)?\]\]/g, "$1")
+      .replace(/[#*`>_\[\]]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
     return `<div class="note" data-note="${esc(n.id)}"><b>${n.pinned ? "📌 " : ""}${esc(n.title || "Без названия")}${n._pending ? '<span class="pend">ждёт отправки</span>' : ""}</b>
       <small>${esc(ex)}</small>${cl.total ? `<div class="prog"><i style="width:${Math.round(cl.done * 100 / cl.total)}%;background:#10b981"></i></div>` : ""}</div>`;
   }).join("") : `<div class="empty">${q ? "Ничего не найдено" : "Заметок нет"}</div>`;
@@ -255,7 +256,7 @@ function noteView(n) {
     if (m) { i++; const on = m[1].toLowerCase() === "x"; return `<label class="chk ${on ? "on" : ""}"><input type="checkbox" data-ci="${i}" ${on ? "checked" : ""}><span>${esc(m[2])}</span></label>`; }
     const h = l.match(/^#{1,6}\s+(.*)$/);
     if (h) return `<h3>${esc(h[1])}</h3>`;
-    return esc(l) + "\n";
+    return esc(l.replace(/\[\[([^\]|]+)(\|([^\]]*))?\]\]/g, (m, t, x, label) => label || t)) + "\n";
   }).join("");
   sheet(`<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><h2 style="margin:0;flex:1;font-size:19px">${esc(n.title)}</h2>
     <button class="btn sm" id="nv-edit">✏️</button><button class="btn sm" onclick="document.getElementById('sheet').classList.remove('on')">✕</button></div>
