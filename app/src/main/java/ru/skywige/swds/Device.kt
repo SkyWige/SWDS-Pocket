@@ -78,12 +78,31 @@ object Device {
             location(ctx)?.let {
                 if (System.currentTimeMillis() - it.time < 30 * 60_000L)
                     o.put("lat", it.latitude).put("lng", it.longitude).put("accuracy", it.accuracy.toDouble())
+                        .put("loc_ts", it.time / 1000).apply { if (it.hasSpeed()) put("speed", it.speed.toDouble()) }
             }
         }
         return o
     }
 
-    fun send(ctx: Context): JSONObject = Api.post(ctx, "/modules/mobile/api/report", report(ctx))
+    /**
+     * Отчёт серверу. Если SWDS не отвечает, точка местоположения не теряется: копится на телефоне
+     * и уходит пачкой в «Геолокацию», когда связь вернётся (история перемещений без дыр).
+     */
+    fun send(ctx: Context): JSONObject {
+        val rep = report(ctx)
+        try {
+            val r = Api.post(ctx, "/modules/mobile/api/report", rep)
+            if (OfflineQueue.geoCount(ctx) > 0) runCatching { OfflineQueue.flushGeo(ctx) }
+            return r
+        } catch (e: ApiException) {
+            if (OfflineQueue.isOffline(e) && rep.has("lat")) {
+                OfflineQueue.addGeo(ctx, JSONObject().put("lat", rep.optDouble("lat")).put("lng", rep.optDouble("lng"))
+                    .put("accuracy", rep.optDouble("accuracy")).put("ts", rep.optLong("loc_ts", System.currentTimeMillis() / 1000))
+                    .apply { if (rep.has("speed")) put("speed", rep.optDouble("speed")) })
+            }
+            throw e
+        }
+    }
 }
 
 /** «Найти телефон»: громкий сигнал будильника, даже в беззвучном режиме. */

@@ -19,4 +19,10 @@
     <string name="button_label">SWDS · кнопка</string>
     <string name="button_desc">Одна кнопка: ассистент, команда SWDS, пульт или отправка файла</string>
     <string name="assist_label">Ассистент SWDS</string>
+    <string name="health_label">SWDS · здоровье</string>
+    <string name="health_desc">Шаги с кольцом цели, сон, пульс и калории — с браслета через Health Connect, работает и без связи</string>
+    <string name="health_privacy">Данные здоровья</string>
+    <string name="offline_label">SWDS · без связи</string>
+    <string name="quick_task">Задача</string>
+    <string name="daily_note">Заметка дня</string>
 </resources>

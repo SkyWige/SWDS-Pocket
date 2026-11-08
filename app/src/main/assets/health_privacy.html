@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Данные здоровья</title><link rel="stylesheet" href="app.css"><script src="app.js"></script></head>
+<body>
+<div class="top"><h1>❤️ Данные здоровья</h1><p>Зачем SWDS Pocket доступ к Health Connect</p></div>
+<div class="wrap">
+  <div class="card">
+    <h2>Что читается</h2>
+    <p>Шаги, расстояние, калории, этажи, пульс, пульс покоя, вариабельность пульса, кислород в крови, частота дыхания,
+      сон с фазами, тренировки (с маршрутом, если разрешите), вес, процент жира, рост, VO₂max, давление, температура,
+      глюкоза и вода — только то, что вы отметите в Health Connect.</p>
+  </div>
+  <div class="card">
+    <h2>Куда уходят данные</h2>
+    <p>Только на <b>ваш</b> сервер SWDS (модуль «Браслет»), к которому привязан телефон. Ни в облако, ни третьим лицам
+      данные не передаются. Приложение ничего не записывает в Health Connect — только читает.</p>
+    <p>На телефоне хранится лишь короткая сводка за сегодня — для виджета «Здоровье» и экрана без связи.</p>
+  </div>
+  <div class="card">
+    <h2>Как отключить</h2>
+    <p>Настройки SWDS Pocket → ❤️ Здоровье → выключите синхронизацию, или заберите разрешения в настройках Health Connect.
+      Уже переданные данные удаляются в SWDS (модуль «Браслет»).</p>
+    <div class="btns"><button class="btn pri" onclick="P.call('open_settings')">Открыть настройки</button>
+      <button class="btn" onclick="P.call('close')">Закрыть</button></div>
+  </div>
+</div>
+</body></html>

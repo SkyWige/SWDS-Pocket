@@ -5,6 +5,7 @@
 <div class="top"><h1>⚙ Настройки</h1><p id="ver"></p></div>
 <div class="sec-tabs" id="sec-tabs">
   <button data-s="link" class="on">📡 Связь</button>
+  <button data-s="health">❤️ Здоровье</button>
   <button data-s="sync">🔄 Папки</button>
   <button data-s="notify">🔔 Уведомления</button>
   <button data-s="assist">🎙 Ассистент</button>
@@ -20,6 +21,34 @@
       <textarea id="servers" autocapitalize="off" spellcheck="false" style="min-height:80px"></textarea></label>
     <label class="f">Имя телефона<input type="text" id="dname"></label>
     <div class="btns"><button class="btn" id="find-srv">🔍 Найти в сети</button><button class="btn pri" id="save-srv">Сохранить</button></div>
+  </div>
+
+  <div class="card" data-sec="health">
+    <h2>❤️ Health Connect → «Браслет»</h2>
+    <p class="muted" style="margin:0 0 8px">Шаги, пульс, сон, тренировки, SpO₂, вес и всё остальное, что пишет Mi Fitness
+      (Xiaomi Smart Band 10 Pro) или другое приложение, уходит в модуль «Браслет» на вашем SWDS.</p>
+    <div class="row"><div class="t"><b>Health Connect</b><small id="hc-st">—</small></div>
+      <button class="btn sm" id="hc-open">Открыть</button></div>
+    <div class="row"><div class="t"><b>Доступ к данным</b><small id="hc-perm">—</small></div>
+      <button class="btn sm pri" id="hc-req">Разрешить</button></div>
+    <div class="row"><div class="t"><b>Читать в фоне и историю</b><small id="hc-bg">Чтобы данные приходили сами, даже если приложение закрыто, и чтобы загрузить больше 30 дней истории</small></div>
+      <button class="btn sm" id="hc-extra">Разрешить</button></div>
+    <div class="row"><div class="t"><b>Синхронизировать автоматически</b><small>Каждые 15–30 минут и при открытии приложения</small></div>
+      <label class="sw"><input type="checkbox" id="hc-on"><span></span></label></div>
+    <div class="row"><div class="t"><b>Последняя синхронизация</b><small id="hc-last">—</small></div>
+      <button class="btn sm" id="hc-sync">⟳ Сейчас</button></div>
+    <div id="hc-today"></div>
+    <details style="margin-top:8px"><summary class="muted">Какие данные разрешены</summary><div id="hc-types" style="margin-top:6px"></div></details>
+    <div class="btns"><button class="btn sm" id="hc-full">Загрузить историю заново</button>
+      <button class="btn sm" id="hc-web">Открыть «Браслет» в SWDS</button></div>
+  </div>
+  <div class="card" data-sec="health">
+    <h2>Как подключить Mi Band 10 Pro</h2>
+    <ol class="muted" style="padding-left:18px;margin:0">
+      <li>Mi Fitness → Профиль → «Сторонние приложения» → Health Connect → включите всё.</li>
+      <li>Здесь нажмите «Разрешить» и отметьте все пункты, потом «Читать в фоне».</li>
+      <li>Добавьте на рабочий стол виджет «SWDS · здоровье» — кольцо шагов, сон и пульс, работает и без связи.</li>
+    </ol>
   </div>
 
   <div class="card" data-sec="notify">
@@ -80,6 +109,10 @@
   </div>
   <div class="card" data-sec="data">
     <h2>📴 Без связи</h2>
+    <div class="row"><div class="t"><b>Хранить данные на телефоне</b><small>Задачи, заметки, календарь, привычки и сводка «Сегодня» — смотреть и править без связи с SWDS</small></div>
+      <label class="sw"><input type="checkbox" id="off-on"><span></span></label></div>
+    <div class="row"><div class="t"><b>Снимок данных</b><small id="off-st">—</small></div>
+      <button class="btn sm" id="off-fetch">⟳ Обновить</button><button class="btn sm" id="off-open">Открыть</button></div>
     <div class="row"><div class="t"><b>Очередь отправки</b><small id="q-st">—</small></div>
       <button class="btn sm" id="q-flush">Отправить</button><button class="btn sm danger" id="q-clear">✕</button></div>
   </div>
@@ -397,7 +430,48 @@ $("rmedia").onchange = () => P.call("save", { remote_media: $("rmedia").checked 
 $("q-flush").onclick = async () => { const r = await P.call("queue_flush"); toast(r.ok ? `Отправлено: ${r.sent}, осталось: ${r.left}` : r.error); renderExtra(); };
 $("q-clear").onclick = async () => { if (confirm("Удалить всё из очереди?")) { await P.call("queue_clear"); renderExtra(); } };
 
-window.addEventListener("focus", () => { render(); renderExtra(); });
+// ── здоровье ──
+async function renderHealth() {
+  const r = await P.call("health_state");
+  if (!r.ok) return;
+  const STXT = { available: '<span class="pill ok">установлен</span>', update_required: '<span class="pill warn">нужно обновить</span>',
+                 unavailable: '<span class="pill warn">не установлен — нажмите «Разрешить», откроется Google Play</span>' };
+  $("hc-st").innerHTML = STXT[r.status] || r.status;
+  $("hc-perm").innerHTML = r.granted_count ? `<span class="pill ok">${r.granted_count} из ${r.total}</span> видов данных` : "не выдан";
+  $("hc-bg").innerHTML = (r.background ? '<span class="pill ok">в фоне ✓</span> ' : '<span class="pill warn">только когда приложение открыто</span> ') +
+    (r.history ? '<span class="pill ok">история ✓</span> ' : '') + (r.routes ? '<span class="pill ok">маршруты ✓</span>' : '');
+  $("hc-on").checked = !!r.enabled;
+  $("hc-last").textContent = (r.last_sync ? new Date(r.last_sync).toLocaleString("ru-RU") : "ещё не было") + (r.last_result ? " · " + r.last_result : "") + (r.running ? " · ⏳ идёт…" : "");
+  const t = r.today || {};
+  const parts = [];
+  if (t.steps != null) parts.push(`👣 ${Number(t.steps).toLocaleString("ru-RU")} шагов`);
+  if (t.sleep_min) parts.push(`😴 ${Math.floor(t.sleep_min / 60)} ч ${String(t.sleep_min % 60).padStart(2, "0")} мин`);
+  if (t.hr_rest) parts.push(`❤️ ${t.hr_rest} покоя`); else if (t.hr_last) parts.push(`❤️ ${t.hr_last}`);
+  if (t.active_kcal) parts.push(`🔥 ${t.active_kcal} ккал`);
+  $("hc-today").innerHTML = parts.length ? `<p style="margin:10px 0 0"><b>Сегодня:</b> ${parts.join(" · ")}</p>` : "";
+  $("hc-types").innerHTML = (r.types || []).map(x => `<span class="pill ${x.granted ? "ok" : ""}" style="margin:2px">${x.granted ? "✓" : "—"} ${esc(x.label)}</span>`).join(" ");
+}
+$("hc-req").onclick = async () => { const r = await P.call("health_request", {}); if (!r.ok) toast(r.error); else toast(r.just_granted ? "Доступ выдан — синхронизирую" : "Разрешения не изменились"); renderHealth(); };
+$("hc-extra").onclick = async () => { const r = await P.call("health_request", { extra: true }); if (!r.ok) toast(r.error); renderHealth(); };
+$("hc-on").onchange = async () => { await P.call("health_enable", { on: $("hc-on").checked }); renderHealth(); };
+$("hc-sync").onclick = async () => { await P.call("health_sync", {}); toast("Синхронизация запущена"); setTimeout(renderHealth, 2500); setTimeout(renderHealth, 8000); };
+$("hc-full").onclick = async () => { if (!confirm("Загрузить историю заново? Дубли не появятся.")) return; await P.call("health_sync", { full: true }); toast("Загружаю историю…"); setTimeout(renderHealth, 5000); };
+$("hc-open").onclick = () => P.call("health_open");
+$("hc-web").onclick = () => P.call("open_main", { path: "/modules/bracelet/window" });
+// ── офлайн-снимок ──
+async function renderOffline() {
+  const r = await P.call("offline_state");
+  if (!r.ok) return;
+  $("off-on").checked = r.enabled !== false;
+  $("off-st").textContent = r.fetched ? `${new Date(r.fetched).toLocaleString("ru-RU")} · задач ${r.tasks}, заметок ${r.notes} · ${r.size_kb} КБ` +
+    (r.geo ? ` · точек местоположения в очереди: ${r.geo}` : "") : "ещё не скачан";
+}
+$("off-on").onchange = () => P.call("offline_enable", { on: $("off-on").checked });
+$("off-fetch").onclick = async () => { $("off-st").textContent = "⏳ Скачиваю…"; const r = await P.call("offline_fetch"); if (!r.ok) toast(r.error); renderOffline(); };
+$("off-open").onclick = () => P.call("open_offline");
+
+window.addEventListener("focus", () => { render(); renderExtra(); renderHealth(); renderOffline(); });
+renderHealth(); renderOffline();
 render();
 renderExtra();
 (function () {

@@ -133,6 +133,37 @@ class Prefs(ctx: Context) {
         get() = sp.getString("today_cache", "") ?: ""
         set(v) = sp.edit().putString("today_cache", v).apply()
 
+    // ── здоровье (Health Connect) ──
+    var healthEnabled: Boolean
+        get() = sp.getBoolean("health_enabled", false)
+        set(v) = sp.edit().putBoolean("health_enabled", v).apply()
+
+    var healthLastSync: Long
+        get() = sp.getLong("health_last_sync", 0L)
+        set(v) = sp.edit().putLong("health_last_sync", v).apply()
+
+    var healthLastResult: String
+        get() = sp.getString("health_last_result", "") ?: ""
+        set(v) = sp.edit().putString("health_last_result", v).apply()
+
+    /** Сводка «сегодня» с телефона: шаги, сон, пульс — для виджета «Здоровье» и экрана без связи. */
+    var healthToday: String
+        get() = sp.getString("health_today", "{}") ?: "{}"
+        set(v) = sp.edit().putString("health_today", v).apply()
+
+    var stepsGoal: Int
+        get() = sp.getInt("steps_goal", 10000)
+        set(v) = sp.edit().putInt("steps_goal", v).apply()
+
+    /** Когда последний раз скачан офлайн-снимок (задачи, заметки, календарь…). */
+    var offlineFetched: Long
+        get() = sp.getLong("offline_fetched", 0L)
+        set(v) = sp.edit().putLong("offline_fetched", v).apply()
+
+    var offlineEnabled: Boolean
+        get() = sp.getBoolean("offline_enabled", true)
+        set(v) = sp.edit().putBoolean("offline_enabled", v).apply()
+
     fun buttonFor(appWidgetId: Int): JSONObject? =
         sp.getString("button_$appWidgetId", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
 
@@ -184,6 +215,7 @@ class Prefs(ctx: Context) {
         put("feed_last_sent", feedLastSent); put("assist_auto_listen", assistAutoListen); put("assist_speak", assistSpeak)
         put("assist_engine", assistEngine); put("assist_voice", assistVoice); put("widget_colors", widgetColors)
         put("remote_media", remoteMedia); put("quick_dest", quickDest)
+        put("health_enabled", healthEnabled); put("offline_enabled", offlineEnabled); put("offline_fetched", offlineFetched)
     }
 
     companion object {

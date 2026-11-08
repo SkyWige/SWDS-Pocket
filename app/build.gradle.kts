@@ -64,4 +64,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // Health Connect: шаги, пульс, сон, тренировки и т. д. от Mi Fitness / Zepp / Google Fit
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha11")
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

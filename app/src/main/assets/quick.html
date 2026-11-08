@@ -9,7 +9,7 @@ body { margin: 0; }
 .q-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .q-x { border: none; background: none; color: var(--muted); font-size: 20px; padding: 6px 10px; }
 .q-pane { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
-#text { flex: 1; min-height: 130px; font-size: 17px; line-height: 1.4; }
+#text, #task { flex: 1; min-height: 130px; font-size: 17px; line-height: 1.4; }
 .q-sub { font-size: 12.5px; color: var(--muted); }
 .q-amount { display: flex; align-items: center; gap: 8px; }
 .q-amount input { font-size: 34px; font-weight: 700; padding: 10px 12px; text-align: center; flex: 1; min-width: 0; }
@@ -31,6 +31,7 @@ body { margin: 0; }
 <div class="q">
   <div class="q-tabs">
     <button class="q-tab" id="t-note" type="button">📝 Заметка</button>
+    <button class="q-tab" id="t-task" type="button">✅ Задача</button>
     <button class="q-tab" id="t-expense" type="button">💸 Трата</button>
     <button class="q-x" id="x" type="button" aria-label="Закрыть">✕</button>
   </div>
@@ -39,6 +40,12 @@ body { margin: 0; }
     <textarea id="text" placeholder="Что записать?"></textarea>
     <div class="chips" id="dest"></div>
     <div class="q-sub" id="dest-help"></div>
+  </div>
+
+  <div class="q-pane hide" id="p-task">
+    <textarea id="task" placeholder="Что сделать? Можно «завтра в 10 позвонить маме !! #личное»"></textarea>
+    <div class="chips" id="due"></div>
+    <div class="q-sub">Дата, время, приоритет (!!), #теги и @проект распознаются сами.</div>
   </div>
 
   <div class="q-pane hide" id="p-expense">
@@ -58,16 +65,16 @@ body { margin: 0; }
 <script>
 const st = P.state(), ex = st.extra || {};
 applyTheme(st.css);
-let mode = ex.mode === "expense" ? "expense" : "note", dest = ex.dest || "inbox", meta = ex.meta || {}, cat = "";
+let due = "";
+let mode = ["expense", "task"].includes(ex.mode) ? ex.mode : "note", dest = ex.dest || "inbox", meta = ex.meta || {}, cat = "";
 const DESTS = [["inbox", "📥 Во входящие", "Разберёте сами или Ассистент — решит, задача это, заметка или что-то ещё."],
                ["notes", "📝 Сразу в Заметки", "Первая строка станет названием."]];
 function msg(t, bad) { const m = $("msg"); m.textContent = t || ""; m.classList.toggle("err", !!bad); }
 function showMode(m) {
   mode = m;
-  $("t-note").classList.toggle("on", m === "note"); $("t-expense").classList.toggle("on", m === "expense");
-  $("p-note").classList.toggle("hide", m !== "note"); $("p-expense").classList.toggle("hide", m !== "expense");
+  for (const k of ["note", "task", "expense"]) { $("t-" + k).classList.toggle("on", m === k); $("p-" + k).classList.toggle("hide", m !== k); }
   msg(ex.queued ? `В очереди ждут отправки: ${ex.queued}` : "");
-  setTimeout(() => (m === "note" ? $("text") : $("amount")).focus(), 60);
+  setTimeout(() => ({ note: $("text"), task: $("task"), expense: $("amount") })[m].focus(), 60);
 }
 function renderDest() {
   $("dest").innerHTML = DESTS.map(d => `<button class="chip ${d[0] === dest ? "on" : ""}" type="button" data-d="${d[0]}">${d[1]}</button>`).join("");
@@ -93,6 +100,10 @@ async function save(stay) {
     const text = $("text").value.trim();
     if (!text) { $("text").focus(); return; }
     body = { kind: "note", text, dest };
+  } else if (mode === "task") {
+    const text = $("task").value.trim();
+    if (!text) { $("task").focus(); return; }
+    body = { kind: "task", text, due };
   } else {
     const amount = parseFloat($("amount").value.replace(",", "."));
     if (!(amount > 0)) { $("amount").focus(); msg("Сколько потратили?", true); return; }
@@ -104,16 +115,22 @@ async function save(stay) {
   $("save").disabled = $("more").disabled = false;
   if (!r.ok) { msg(r.error || "Не получилось", true); return; }
   if (!stay) { toast(r.message || "Записано"); setTimeout(() => P.call("close"), r.queued ? 1200 : 400); return; }
-  $("text").value = ""; $("amount").value = ""; $("note").value = ""; cat = ""; renderMeta();
+  $("text").value = ""; $("task").value = ""; $("amount").value = ""; $("note").value = ""; cat = ""; renderMeta();
   msg(r.message || "Записано");
-  (mode === "note" ? $("text") : $("amount")).focus();
+  ({ note: $("text"), task: $("task"), expense: $("amount") })[mode].focus();
 }
+function renderDue() {
+  const D = [["", "Без срока"], [ymd(0), "Сегодня"], [ymd(-1), "Завтра"], [ymd(-7), "Через неделю"]];
+  $("due").innerHTML = D.map(d => `<button class="chip ${d[0] === due ? "on" : ""}" type="button" data-due="${d[0]}">${d[1]}</button>`).join("");
+}
+$("due").onclick = e => { const b = e.target.closest("[data-due]"); if (!b) return; due = b.dataset.due; renderDue(); };
 $("save").onclick = () => save(false);
 $("more").onclick = () => save(true);
 $("t-note").onclick = () => showMode("note");
+$("t-task").onclick = () => showMode("task");
 $("t-expense").onclick = () => showMode("expense");
 $("x").onclick = () => P.call("close");
-renderDest(); renderMeta(); showMode(mode);
+renderDest(); renderMeta(); renderDue(); showMode(mode);
 P.call("meta").then(r => { if (r.ok && r.meta) { meta = r.meta; renderMeta(); } });
 </script>
 </body></html>

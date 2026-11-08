@@ -179,6 +179,7 @@ abstract class LocalPageActivity : Activity() {
         const val RC_PERM = 41
         const val RC_TREE = 42
         const val RC_FILES = 43
+        const val RC_HEALTH = 44
     }
 }
 
@@ -270,6 +271,11 @@ object Bridge {
     }
 }
 
+/** «Зачем приложению данные здоровья» — обязательный экран для Health Connect. */
+class HealthRationaleActivity : LocalPageActivity() {
+    override val page = "health_privacy"
+}
+
 /** Первый запуск: QR или ручной ввод адреса и кода. */
 class PairActivity : LocalPageActivity() {
     override val page = "pair"
@@ -353,6 +359,52 @@ class SettingsActivity : LocalPageActivity() {
             }
             "open_assist" -> { main.post { startActivity(Intent(this, AssistActivity::class.java)) }; ok() }
             "sync_now" -> { SyncWorker.now(this, a.optString("what", "all"), manual = true); ok() }
+            // ── здоровье (Health Connect) ──
+            "health_state" -> ok(Health.state(this))
+            "health_request" -> {
+                val st = Health.statusText(this)
+                when (st) {
+                    "available" -> {
+                        val perms = if (a.optBoolean("extra")) Health.EXTRA_PERMISSIONS else Health.BASE_PERMISSIONS
+                        main.post {
+                            await(RC_HEALTH, id)
+                            try { startActivityForResult(Health.permissionIntent(this, perms), RC_HEALTH) }
+                            catch (e: Exception) { reply(id, err("Не открылся Health Connect: ${e.message}")) }
+                        }
+                        null
+                    }
+                    "update_required" -> { main.post { runCatching { startActivity(Health.installIntent()) } }; err("Обновите Health Connect") }
+                    else -> { main.post { runCatching { startActivity(Health.installIntent()) } }; err("Установите Health Connect") }
+                }
+            }
+            "health_enable" -> {
+                p.healthEnabled = a.optBoolean("on")
+                if (p.healthEnabled) SyncWorker.now(this, "health", manual = true)
+                ok(Health.state(this))
+            }
+            "health_sync" -> {
+                if (a.optBoolean("full")) p.healthLastSync = 0L                   // заново загрузить историю
+                SyncWorker.now(this, "health", manual = true); ok()
+            }
+            "health_open" -> {
+                main.post {
+                    if (runCatching { startActivity(Health.settingsIntent()) }.isFailure) runCatching { startActivity(Health.installIntent()) }
+                }
+                ok()
+            }
+            "health_widget" -> { HealthWidget.renderAll(this); ok() }
+            // ── офлайн-снимок ──
+            "offline_state" -> ok(OfflineData.summary(this).put("enabled", p.offlineEnabled).put("geo", OfflineQueue.geoCount(this)))
+            "offline_fetch" -> ok(JSONObject().put("ok", OfflineData.fetch(this)).put("summary", OfflineData.summary(this)))
+            "offline_enable" -> { p.offlineEnabled = a.optBoolean("on"); ok() }
+            "open_offline" -> {
+                main.post {
+                    startActivity(Intent(this, MainActivity::class.java).putExtra("offline", true)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                    finish()
+                }
+                ok()
+            }
             "unpair" -> {
                 runCatching { Api.post(this, "/modules/mobile/api/report", JSONObject().put("bye", true)) }
                 PushService.stop(this)
@@ -418,6 +470,16 @@ class SettingsActivity : LocalPageActivity() {
     }
 
     override fun onResult(id: String, requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == RC_HEALTH) {
+            val got = Health.parsePermissionResult(resultCode, data)
+            val p = Prefs(this)
+            if (got.any { it in Health.BASE_PERMISSIONS } && !p.healthEnabled) {
+                p.healthEnabled = true
+                SyncWorker.now(this, "health", manual = true)
+            }
+            reply(id, ok(Health.state(this).put("just_granted", got.size)))
+            return
+        }
         if (requestCode == RC_TREE) {
             val uri = data?.data
             if (resultCode != RESULT_OK || uri == null) { reply(id, err("Папка не выбрана")); return }

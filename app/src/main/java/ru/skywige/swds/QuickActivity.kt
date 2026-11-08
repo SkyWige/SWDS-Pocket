@@ -88,8 +88,11 @@ class QuickActivity : LocalPageActivity() {
             .put("count", OfflineQueue.count(this))
     }
 
-    private fun quickTitle(b: JSONObject): String = if (b.optString("kind") == "expense")
-        "💸 " + b.optString("amount") + " " + b.optString("category") else "📝 " + b.optString("text").take(50)
+    private fun quickTitle(b: JSONObject): String = when (b.optString("kind")) {
+        "expense" -> "💸 " + b.optString("amount") + " " + b.optString("category")
+        "task" -> "✅ " + b.optString("text").take(50)
+        else -> "📝 " + b.optString("text").take(50)
+    }
 
     companion object {
         const val EXTRA_MODE = "mode"

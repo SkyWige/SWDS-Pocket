@@ -1,17 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- targetPackage — applicationId (ru.skywige.swdspocket), иначе ярлыки не открываются -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut android:shortcutId="quick_note" android:enabled="true" android:icon="@drawable/ic_stat"
         android:shortcutShortLabel="@string/quick_note">
-        <intent android:action="ru.skywige.swds.QUICK_note" android:targetPackage="ru.skywige.swds"
+        <intent android:action="ru.skywige.swds.QUICK_note" android:targetPackage="ru.skywige.swdspocket"
             android:targetClass="ru.skywige.swds.QuickActivity">
             <extra android:name="mode" android:value="note" />
         </intent>
     </shortcut>
+    <shortcut android:shortcutId="quick_task" android:enabled="true" android:icon="@drawable/ic_stat"
+        android:shortcutShortLabel="@string/quick_task">
+        <intent android:action="ru.skywige.swds.QUICK_task" android:targetPackage="ru.skywige.swdspocket"
+            android:targetClass="ru.skywige.swds.QuickActivity">
+            <extra android:name="mode" android:value="task" />
+        </intent>
+    </shortcut>
     <shortcut android:shortcutId="quick_expense" android:enabled="true" android:icon="@drawable/ic_stat"
         android:shortcutShortLabel="@string/quick_expense">
-        <intent android:action="ru.skywige.swds.QUICK_expense" android:targetPackage="ru.skywige.swds"
+        <intent android:action="ru.skywige.swds.QUICK_expense" android:targetPackage="ru.skywige.swdspocket"
             android:targetClass="ru.skywige.swds.QuickActivity">
             <extra android:name="mode" android:value="expense" />
         </intent>
+    </shortcut>
+    <shortcut android:shortcutId="health" android:enabled="true" android:icon="@drawable/ic_stat"
+        android:shortcutShortLabel="@string/health_privacy">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ru.skywige.swdspocket"
+            android:targetClass="ru.skywige.swds.MainActivity" android:data="swds://open?path=/modules/bracelet/window" />
     </shortcut>
 </shortcuts>

@@ -2,7 +2,7 @@ name: Сборка APK
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]          # сборка на любой ветке; релиз — только из main
   pull_request:
   workflow_dispatch:
 
@@ -67,7 +67,7 @@ jobs:
           path: ${{ steps.apk.outputs.file }}
 
       - name: Релиз
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.apk.outputs.version }}

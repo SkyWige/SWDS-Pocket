@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Кольцо прогресса для виджета «Здоровье» (ProgressBar в RemoteViews) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="ring" android:innerRadiusRatio="2.6" android:thicknessRatio="10" android:useLevel="false">
+            <solid android:color="#33808080" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <rotate android:fromDegrees="270" android:toDegrees="270" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="ring" android:innerRadiusRatio="2.6" android:thicknessRatio="10" android:useLevel="true">
+                <solid android:color="#10B981" />
+            </shape>
+        </rotate>
+    </item>
+</layer-list>

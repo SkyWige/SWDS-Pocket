@@ -116,7 +116,7 @@ class MainActivity : Activity() {
         Events.onTheme = { applyTheme(); if (loggedIn) web.reload() }
         current = java.lang.ref.WeakReference(this)
         askNotificationPermission()
-        open(pathFrom(intent) ?: "/")
+        if (intent?.getBooleanExtra("offline", false) == true) showOffline() else open(pathFrom(intent) ?: "/")
         PushService.start(this)
     }
 
@@ -127,6 +127,7 @@ class MainActivity : Activity() {
         if (data?.scheme == "swds" && data.host == "pair") {
             startActivity(Intent(this, PairActivity::class.java).setData(data)); return
         }
+        if (intent?.getBooleanExtra("offline", false) == true) { showOffline(); return }
         pathFrom(intent)?.let { open(it) }
     }
 
@@ -134,9 +135,17 @@ class MainActivity : Activity() {
         super.onResume()
         visible = true
         if (!Prefs(this).paired) { startActivity(Intent(this, PairActivity::class.java)); finish(); return }
+        val app = applicationContext
         Thread {
             runCatching { Bridge.hello(this) }
             main.post { applyTheme() }
+            // приложение на экране — Health Connect разрешает читать и без «фонового» разрешения
+            val p = Prefs(app)
+            if (p.healthEnabled && System.currentTimeMillis() - p.healthLastSync > 20 * 60_000L) {
+                runCatching { Health.sync(app) }
+                runCatching { Health.pullServerSummary(app) }
+            }
+            runCatching { OfflineData.maybeFetch(app, 10 * 60_000L) }
         }.start()
         PushService.start(this)
         syncFoldersIfStale()
@@ -305,6 +314,13 @@ class MainActivity : Activity() {
                 "📲  Лента уведомлений телефона" to "/modules/mobile/window#feed",
                 "📱  Телефон и общая папка" to "/modules/mobile/window"
             ),
+            "Здоровье и дела" to listOf(
+                "⌚  Браслет: шаги, сон, пульс" to "/modules/bracelet/window",
+                "✅  Задачи" to "/modules/tasks/window",
+                "📝  Заметки" to "/modules/notes_manager/window",
+                "📍  Геолокация" to "/modules/geolocation/window",
+                "📴  Без связи: данные на телефоне" to "#offline"
+            ),
             "SWDS" to listOf(
                 "🎙  Ассистент" to "#assist",
                 "🧩  Все модули" to "/ui/modules",
@@ -316,6 +332,7 @@ class MainActivity : Activity() {
             ),
             "Приложение" to listOf(
                 "⚙  Настройки" to "#settings",
+                "❤️  Health Connect" to "#health",
                 "⟳  Обновить страницу" to "#reload"
             )
         )
@@ -364,6 +381,8 @@ class MainActivity : Activity() {
             "#settings" -> startActivity(Intent(this, SettingsActivity::class.java))
             "#sync" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "sync"))
             "#reload" -> web.reload()
+            "#offline" -> showOffline()
+            "#health" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "health"))
             "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
             "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
             else -> open(target)
@@ -436,6 +455,13 @@ class MainActivity : Activity() {
             // самоподписанный сертификат домашнего SWDS — только для адресов, к которым привязан телефон
             if (isOurs(error.url)) handler.proceed() else handler.cancel()
         }
+    }
+
+    /** Экран «без связи» с данными на телефоне — можно открыть и при живой связи из меню «Ещё». */
+    fun showOffline() {
+        loggedIn = false
+        web.loadUrl("file:///android_asset/offline.html#manual")
+        Thread { runCatching { OfflineData.maybeFetch(applicationContext, 60_000L) }; main.post { web.evaluateJavascript("window.onBundle && onBundle()", null) } }.start()
     }
 
     private fun offline(reason: String) {
@@ -594,6 +620,27 @@ class MainActivity : Activity() {
         @JavascriptInterface fun assistant() = main.post { startActivity(Intent(this@MainActivity, AssistActivity::class.java)) }
         @JavascriptInterface fun openSync() = main.post { startActivity(Intent(this@MainActivity, SettingsActivity::class.java).putExtra("section", "sync")) }
         @JavascriptInterface fun deviceName(): String = Prefs(this@MainActivity).deviceName
+
+        // ── офлайн-экран: снимок данных и правки без связи ──
+        @JavascriptInterface fun bundle(): String = OfflineData.read(this@MainActivity)
+        @JavascriptInterface fun saveBundle(json: String) = OfflineData.save(this@MainActivity, json)
+        @JavascriptInterface fun health(): String = Prefs(this@MainActivity).healthToday
+        @JavascriptInterface fun queued(): Int = OfflineQueue.count(this@MainActivity)
+        /** Команда из офлайн-экрана: в очередь (client_id защищает от дублей), отправка — как только будет связь. */
+        @JavascriptInterface fun exec(command: String, argsJson: String, title: String, clientId: String): Boolean {
+            val args = runCatching { org.json.JSONObject(argsJson) }.getOrNull() ?: return false
+            OfflineQueue.addExec(this@MainActivity, command, args, title, clientId)
+            return true
+        }
+        @JavascriptInterface fun refreshBundle() {
+            val app = applicationContext
+            Thread {
+                val ok = runCatching { OfflineQueue.flush(app); OfflineData.fetch(app) }.getOrDefault(false)
+                main.post { if (!isFinishing) web.evaluateJavascript("window.onBundle && onBundle($ok)", null) }
+            }.start()
+        }
+        @JavascriptInterface fun syncHealth() = SyncWorker.now(this@MainActivity, "health", manual = true)
+        @JavascriptInterface fun openPath(path: String) = main.post { loggedIn = false; open(path) }
     }
 
     companion object {

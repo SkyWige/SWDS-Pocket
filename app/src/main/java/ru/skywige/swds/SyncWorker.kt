@@ -20,7 +20,10 @@ import java.util.concurrent.TimeUnit
  *  • отчёт о заряде/Wi-Fi/местоположении;
  *  • синхронизация выбранных папок телефона → SWDS;
  *  • файлы из «На телефон» → Загрузки/SWDS;
- *  • обновление виджетов.
+ *  • обновление виджетов;
+ *  • здоровье: Health Connect → «Браслет» SWDS, сводка для виджета «Здоровье»;
+ *  • офлайн-снимок задач, заметок, календаря и привычек для работы без связи;
+ *  • точки местоположения, накопленные без связи.
  */
 class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
@@ -54,6 +57,20 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
             }
             if (what in setOf("all", "outbox") && p.receiveFiles) step("outbox") { outbox(ctx) }
             if (what in setOf("all", "widgets")) step("widgets") { SwdsWidget.updateAllSync(ctx) }
+            if (what in setOf("all", "health")) step("health") {
+                val manual = inputData.getBoolean("manual", false)
+                if (p.healthEnabled) {
+                    val r = Health.sync(ctx, manual)
+                    if (manual && !r.optBoolean("ok", true)) Events.toast(ctx, "⚠ " + r.optString("error"))
+                    else if (manual && r.has("message")) Events.toast(ctx, "❤️ " + r.optString("message"))
+                }
+                runCatching { Health.pullServerSummary(ctx) }
+                HealthWidget.renderAll(ctx)
+            }
+            if (what in setOf("all", "offline")) step("offline") {
+                if (what == "offline") OfflineData.fetch(ctx) else OfflineData.maybeFetch(ctx, 25 * 60_000L)
+            }
+            if (what == "all" && OfflineQueue.geoCount(ctx) > 0) step("geo") { OfflineQueue.flushGeo(ctx) }
             if (what == "all") PushService.start(ctx)
         } catch (e: ApiException) {
             return Result.success()
@@ -95,7 +112,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
         }
 
         fun now(ctx: Context, what: String, manual: Boolean = false) {
-            val req = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(NET)
+            // здоровье читается и без сети: сводка для виджета обновится, а отправка на сервер — в следующий раз
+            val req = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(if (what == "health") Constraints.NONE else NET)
                 .setInputData(workDataOf("what" to what, "manual" to manual)).build()
             WorkManager.getInstance(ctx).enqueueUniqueWork("swds_now_$what", ExistingWorkPolicy.APPEND_OR_REPLACE, req)
         }
