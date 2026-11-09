@@ -27,4 +27,9 @@
         <intent android:action="android.intent.action.VIEW" android:targetPackage="ru.skywige.swdspocket"
             android:targetClass="ru.skywige.swds.MainActivity" android:data="swds://open?path=/modules/bracelet/window" />
     </shortcut>
+    <shortcut android:shortcutId="library" android:enabled="true" android:icon="@drawable/ic_stat"
+        android:shortcutShortLabel="@string/library">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="ru.skywige.swdspocket"
+            android:targetClass="ru.skywige.swds.LibraryActivity" />
+    </shortcut>
 </shortcuts>

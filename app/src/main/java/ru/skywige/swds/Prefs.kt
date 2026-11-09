@@ -133,6 +133,15 @@ class Prefs(ctx: Context) {
         get() = sp.getString("today_cache", "") ?: ""
         set(v) = sp.edit().putString("today_cache", v).apply()
 
+    // ── библиотека (книги без связи) ──
+    var libraryEnabled: Boolean
+        get() = sp.getBoolean("library_enabled", true)
+        set(v) = sp.edit().putBoolean("library_enabled", v).apply()
+
+    var libraryWifiOnly: Boolean
+        get() = sp.getBoolean("library_wifi_only", true)
+        set(v) = sp.edit().putBoolean("library_wifi_only", v).apply()
+
     // ── здоровье (Health Connect) ──
     var healthEnabled: Boolean
         get() = sp.getBoolean("health_enabled", false)
@@ -216,6 +225,7 @@ class Prefs(ctx: Context) {
         put("assist_engine", assistEngine); put("assist_voice", assistVoice); put("widget_colors", widgetColors)
         put("remote_media", remoteMedia); put("quick_dest", quickDest)
         put("health_enabled", healthEnabled); put("offline_enabled", offlineEnabled); put("offline_fetched", offlineFetched)
+        put("library_enabled", libraryEnabled); put("library_wifi_only", libraryWifiOnly)
     }
 
     companion object {

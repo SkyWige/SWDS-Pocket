@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Читалка</title>
+<link rel="stylesheet" href="reader.css">
+<style>html, body { margin: 0; height: 100%; overflow: hidden; background: #fbfaf7; }</style>
+</head>
+<body>
+<div id="reader"></div>
+<script src="app.js"></script>
+<script src="reader.js"></script>
+<script>
+/* Читалка SWDS Pocket: тот же движок, что в веб-библиотеке, но книги — из памяти телефона. */
+(function () {
+  "use strict";
+  var R = null, root = "", speakLang = "ru-RU";
+  P.on("tts_done", function () { if (R) R.ttsDone(); });
+  P.on("tts_error", function () { var t = document.getElementById("rd-toast"); if (t) { t.textContent = "Синтез речи недоступен — установите голос в настройках Android"; t.classList.add("on"); } });
+  window.__rdKey = function (k) { if (R) (k === "next" ? R.next() : R.prev()); };
+  window.__rdSave = function () { if (R) R.save(true); };
+  P.call("lib_open").then(function (d) {
+    if (!d.ok) { document.getElementById("reader").innerHTML = '<p style="padding:40px;text-align:center;font-family:sans-serif">' + esc(d.error || "Книга не найдена") + "</p>"; return; }
+    root = d.root; speakLang = (d.pack.meta && d.pack.meta.lang) || "ru-RU";
+    var pdfPage = function (n, w) { return P.call("pdf_page", {n: n, w: w}).then(function (r) { if (!r.ok) throw new Error(r.error); return r.url; }); };
+    R = SWDSReader.start(document.getElementById("reader"), {
+      book: d.book, pack: d.pack, marks: d.marks || [],
+      initial: {locator: d.book.locator},
+      src: {
+        chapter: function (n) { return P.call("lib_chapter", {n: n}).then(function (r) { return r.html || ""; }); },
+        asset: function (rel) { return root + rel; },
+        saveProgress: function (p) { return P.call("lib_progress", p); },
+        saveMark: function (m) { return P.call("lib_mark", m); },
+        search: function (q) { return P.call("lib_search", {q: q}).then(function (r) { return r.hits || []; }); },
+        pdfInfo: d.pack.kind === "pdf" ? function () { return P.call("pdf_info").then(function (r) { if (!r.ok) throw new Error(r.error); return r; }); } : null,
+        pdfPage: pdfPage,
+        openFile: function () { P.call("open_original"); },
+        speak: function (text, onEnd, rate) { P.call("tts_speak", {text: text, rate: rate || 1, lang: speakLang}); },
+        stopSpeak: function () { P.call("tts_stop"); },
+        onTheme: function (bg) { if (bg) P.call("theme_bar", {color: bg}); },
+        back: function () { P.call("close"); }
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

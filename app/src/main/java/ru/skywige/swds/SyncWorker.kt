@@ -71,6 +71,15 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
                 if (what == "offline") OfflineData.fetch(ctx) else OfflineData.maybeFetch(ctx, 25 * 60_000L)
             }
             if (what == "all" && OfflineQueue.geoCount(ctx) > 0) step("geo") { OfflineQueue.flushGeo(ctx) }
+            if (what in setOf("all", "library")) step("library") {
+                val manual = inputData.getBoolean("manual", false)
+                if (p.libraryEnabled || manual) {
+                    val r = Library.sync(ctx, manual)
+                    if (manual && !r.optBoolean("ok", true)) Events.toast(ctx, "📚 " + r.optString("error"))
+                    else if (manual && r.optInt("downloaded") > 0) Events.toast(ctx, "📚 Скачано книг: " + r.optInt("downloaded"))
+                }
+            }
+            if (what == "library_push") step("library_push") { Library.pushPull(ctx) }
             if (what == "all") PushService.start(ctx)
         } catch (e: ApiException) {
             return Result.success()

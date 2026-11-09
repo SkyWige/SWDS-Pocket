@@ -25,4 +25,6 @@
     <string name="offline_label">SWDS · без связи</string>
     <string name="quick_task">Задача</string>
     <string name="daily_note">Заметка дня</string>
+    <string name="library">Библиотека</string>
+    <string name="reader">Читалка</string>
 </resources>

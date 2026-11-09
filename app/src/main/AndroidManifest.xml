@@ -127,6 +127,17 @@
             android:exported="false"
             android:label="@string/settings" />
 
+        <!-- Библиотека: книги без связи и читалка -->
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="true"
+            android:label="@string/library" />
+        <activity
+            android:name=".ReaderActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
+            android:label="@string/reader" />
+
         <!-- Health Connect требует экран «зачем приложению данные здоровья» (без него разрешения не выдаются) -->
         <activity
             android:name=".HealthRationaleActivity"

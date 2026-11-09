@@ -319,6 +319,7 @@ class MainActivity : Activity() {
                 "✅  Задачи" to "/modules/tasks/window",
                 "📝  Заметки" to "/modules/notes_manager/window",
                 "📍  Геолокация" to "/modules/geolocation/window",
+                "📚  Библиотека и читалка (без связи)" to "#library",
                 "📴  Без связи: данные на телефоне" to "#offline"
             ),
             "SWDS" to listOf(
@@ -382,6 +383,7 @@ class MainActivity : Activity() {
             "#sync" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "sync"))
             "#reload" -> web.reload()
             "#offline" -> showOffline()
+            "#library" -> startActivity(Intent(this, LibraryActivity::class.java))
             "#health" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "health"))
             "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
             "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
@@ -419,6 +421,14 @@ class MainActivity : Activity() {
             if (url.startsWith("swds://")) { onNewIntent(Intent(Intent.ACTION_VIEW, req.url)); return true }
             if (isOurs(url)) {
                 val path = req.url.path ?: ""
+                // книга уже скачана в телефон — открываем свою читалку: работает без связи, громкость листает
+                Regex("^/modules/library/read/([0-9a-f]{8,40})$").find(path)?.let { m ->
+                    val bid = m.groupValues[1]
+                    if (Library.isLocal(this@MainActivity, bid)) {
+                        startActivity(Intent(this@MainActivity, ReaderActivity::class.java).putExtra("id", bid))
+                        return true
+                    }
+                }
                 if (path.startsWith("/auth/login") || path.startsWith("/auth/register")) {
                     login(req.url.getQueryParameter("next") ?: "/")      // сессия истекла — входим токеном заново
                     return true
@@ -602,6 +612,8 @@ class MainActivity : Activity() {
             startActivity(Intent(this@MainActivity, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
         }
         @JavascriptInterface fun retry() = main.post { loggedIn = false; open("/") }
+        /** Офлайн-экран и страницы SWDS: открыть книги, скачанные в телефон. */
+        @JavascriptInterface fun openLibrary() = main.post { startActivity(Intent(this@MainActivity, LibraryActivity::class.java)) }
         @JavascriptInterface fun toast(text: String) = Events.toast(this@MainActivity, text)
         @JavascriptInterface fun deviceId(): String = Prefs(this@MainActivity).deviceId
         @JavascriptInterface fun server(): String = base()
