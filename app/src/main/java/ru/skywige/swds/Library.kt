@@ -27,6 +27,10 @@ object Library {
     private fun safe(id: String) = id.filter { it.isLetterOrDigit() }.take(40)
 
     @Volatile var status: String = ""
+    /** Книга, которая скачивается прямо сейчас (для индикатора на обложке). */
+    @Volatile var downloading: String = ""
+    /** Книга, которую пользователь открыл, а её ещё нет — скачивается первой. */
+    @Volatile var wanted: String = ""
     @Volatile var progressDone = 0
     @Volatile var progressTotal = 0
 
@@ -81,10 +85,11 @@ object Library {
             val local = b.optString("local_ver").isNotEmpty() && File(d, "book.json").exists()
             val cover = coverFile(d)
             if (local) bytes += dirSize(d)
-            out.put(JSONObject(b.toString()).put("local", local).put("cover_file", cover?.let { "file://" + it.absolutePath } ?: ""))
+            out.put(JSONObject(b.toString()).put("id", k).put("local", local).put("downloading", k == downloading)
+                .put("cover_file", cover?.let { "file://" + it.absolutePath } ?: ""))
         }
         return JSONObject().put("books", out).put("bytes", bytes).put("synced_at", idx.optLong("synced_at"))
-            .put("status", status).put("done", progressDone).put("total", progressTotal)
+            .put("status", status).put("done", progressDone).put("total", progressTotal).put("wanted", wanted)
             .put("outbox", readJson(outboxFile(ctx), "{}").let { (it.optJSONArray("progress")?.length() ?: 0) + (it.optJSONArray("marks")?.length() ?: 0) })
             .put("shelves", idx.optJSONArray("shelves") ?: JSONArray())
     }
@@ -306,7 +311,7 @@ object Library {
                     b.put("progress", s.optDouble("progress")).put("locator", s.optString("locator")).put("loc_ts", s.optDouble("loc_ts"))
                 }
                 if (s.optString("status").isNotEmpty()) b.put("status", s.optString("status"))
-                b.remove("removed")
+                if (id == wanted) b.remove("removed")             // удалённую с телефона книгу снова качаем, только если её открыли
             }
             // книги, которых больше нет в списке для телефона, — убираем (кроме тех, что читаются прямо сейчас)
             val drop = books.keys().asSequence().filter { it !in keep }.toList()
@@ -328,9 +333,10 @@ object Library {
         for (i in 0 until list.length()) {
             val s = list.getJSONObject(i)
             val b = book(ctx, s.optString("id")) ?: continue
+            if (b.optBoolean("removed") && s.optString("id") != wanted) continue
             if (b.optString("local_ver") != s.optString("pack_ver") || !File(bookDir(ctx, s.optString("id")), "book.json").exists()) todo.add(s)
         }
-        todo.sortBy { if (it.optString("status") == "reading") 0 else 1 }
+        todo.sortBy { if (it.optString("id") == wanted) -1 else if (it.optString("status") == "reading") 0 else 1 }
         progressTotal = todo.size
         progressDone = 0
         var got = 0
@@ -338,11 +344,13 @@ object Library {
         for (s in todo) {
             val id = s.optString("id")
             status = "Скачиваю: " + s.optString("title").take(40)
+            downloading = id
             try {
                 download(ctx, id, s.optString("pack_url"))
                 synchronized(lock) {
                     val idx = index(ctx)
                     idx.optJSONObject("books")?.optJSONObject(id)?.put("local_ver", s.optString("pack_ver"))?.put("downloaded_at", System.currentTimeMillis())
+                        ?.remove("removed")
                     saveIndex(ctx, idx)
                 }
                 got++
@@ -352,6 +360,8 @@ object Library {
             }
             progressDone++
         }
+        downloading = ""
+        if (wanted.isNotEmpty() && isLocal(ctx, wanted)) wanted = ""
         status = ""
         return JSONObject().put("ok", true).put("downloaded", got).put("failed", failed).put("books", list.length())
     }
