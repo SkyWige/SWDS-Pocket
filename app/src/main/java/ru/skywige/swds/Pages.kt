@@ -299,6 +299,14 @@ class SettingsActivity : LocalPageActivity() {
                 }
                 if (a.has("report_location")) p.reportLocation = a.optBoolean("report_location")
                 if (a.has("report_device")) p.reportDevice = a.optBoolean("report_device")
+                if (a.has("track_interval")) {
+                    p.trackInterval = a.optInt("track_interval", 20).coerceIn(5, 300)
+                    if (p.trackRoutes) TrackService.restart(this)
+                }
+                if (a.has("track_routes")) {
+                    p.trackRoutes = a.optBoolean("track_routes")
+                    if (p.trackRoutes) TrackService.start(this) else TrackService.stop(this)
+                }
                 if (a.has("receive_files")) p.receiveFiles = a.optBoolean("receive_files")
                 if (a.has("quick_dest")) p.quickDest = a.optString("quick_dest")
                 if (a.has("servers")) {

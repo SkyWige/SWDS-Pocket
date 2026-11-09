@@ -55,6 +55,16 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("report_location", false)
         set(v) = sp.edit().putBoolean("report_location", v).apply()
 
+    /** «Записывать маршруты» — GPS-трек для «Карты передвижений» SWDS. */
+    var trackRoutes: Boolean
+        get() = sp.getBoolean("track_routes", false)
+        set(v) = sp.edit().putBoolean("track_routes", v).apply()
+
+    /** Как часто брать точку маршрута, секунд. */
+    var trackInterval: Int
+        get() = sp.getInt("track_interval", 20)
+        set(v) = sp.edit().putInt("track_interval", v).apply()
+
     var reportDevice: Boolean
         get() = sp.getBoolean("report_device", true)
         set(v) = sp.edit().putBoolean("report_device", v).apply()
@@ -218,6 +228,7 @@ class Prefs(ctx: Context) {
         put("servers", JSONArray(servers)); put("active_server", activeServer); put("device_name", deviceName)
         put("device_id", deviceId); put("server_name", serverName); put("paired", paired); put("server_id", serverId)
         put("persistent_push", persistentPush); put("report_location", reportLocation); put("report_device", reportDevice)
+        put("track_routes", trackRoutes); put("track_interval", trackInterval)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)
         put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))

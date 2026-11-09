@@ -24,6 +24,14 @@ import java.util.Locale
 class LibraryActivity : LocalPageActivity() {
     override val page = "library"
 
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // обложки лежат в памяти приложения (file:///data/…/files/library/<id>/cover.*): без этого с Android 11
+        // WebView их не показывает — вместо обложек были пустые/битые картинки
+        web.settings.allowFileAccess = true
+    }
+
     override fun onResume() {
         super.onResume()
         emit("resume", JSONObject())
