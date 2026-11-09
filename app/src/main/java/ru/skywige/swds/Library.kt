@@ -79,7 +79,7 @@ object Library {
             val b = books.getJSONObject(k)
             val d = bookDir(ctx, k)
             val local = b.optString("local_ver").isNotEmpty() && File(d, "book.json").exists()
-            val cover = listOf("cover.jpg", "cover.png", "cover.gif", "cover.webp").map { File(d, it) }.firstOrNull { it.exists() }
+            val cover = coverFile(d)
             if (local) bytes += dirSize(d)
             out.put(JSONObject(b.toString()).put("local", local).put("cover_file", cover?.let { "file://" + it.absolutePath } ?: ""))
         }
@@ -87,6 +87,38 @@ object Library {
             .put("status", status).put("done", progressDone).put("total", progressTotal)
             .put("outbox", readJson(outboxFile(ctx), "{}").let { (it.optJSONArray("progress")?.length() ?: 0) + (it.optJSONArray("marks")?.length() ?: 0) })
             .put("shelves", idx.optJSONArray("shelves") ?: JSONArray())
+    }
+
+    private val COVER_EXT = listOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "avif", "svg")
+
+    /** Обложка книги: из пакета или скачанная отдельно миниатюра (для ещё не скачанных книг). */
+    fun coverFile(d: File): File? = COVER_EXT.map { File(d, "cover.$it") }.firstOrNull { it.exists() && it.length() > 0 }
+
+    /** Обложки книг, которых ещё нет на телефоне: маленькие картинки, чтобы список выглядел как в SWDS. */
+    private fun fetchCovers(ctx: Context, list: JSONArray) {
+        for (i in 0 until list.length()) {
+            val s = list.optJSONObject(i) ?: continue
+            val url = s.optString("cover")
+            if (url.isEmpty()) continue
+            val d = bookDir(ctx, s.optString("id"))
+            if (coverFile(d) != null) continue
+            runCatching {
+                d.mkdirs()
+                Api.download(ctx, url) { input, _, type, _ ->
+                    val ext = when {
+                        type.contains("png") -> "png"
+                        type.contains("webp") -> "webp"
+                        type.contains("gif") -> "gif"
+                        type.contains("svg") -> "svg"
+                        type.contains("avif") -> "avif"
+                        else -> "jpg"
+                    }
+                    val tmp = File(d, ".cover.tmp")
+                    tmp.outputStream().use { input.copyTo(it) }
+                    if (tmp.length() > 0) tmp.renameTo(File(d, "cover.$ext")) else tmp.delete()
+                }
+            }.onFailure { android.util.Log.w("SWDS", "library cover ${s.optString("id")}: $it") }
+        }
     }
 
     private fun dirSize(d: File): Long = d.walkTopDown().filter { it.isFile }.sumOf { it.length() }
@@ -288,6 +320,8 @@ object Library {
             idx.put("shelves", man.optJSONArray("shelves") ?: JSONArray()).put("synced_at", System.currentTimeMillis())
             saveIndex(ctx, idx)
         }
+        status = "Обложки…"
+        fetchCovers(ctx, list)
         if (p.libraryWifiOnly && metered(ctx) && !manual) { status = ""; return JSONObject().put("ok", true).put("waiting", "wifi") }
         // скачивание: сначала «читаю», потом остальное
         val todo = ArrayList<JSONObject>()

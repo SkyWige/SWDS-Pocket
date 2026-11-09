@@ -12,6 +12,7 @@ class SystemReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 PushService.start(ctx)
+                TrackService.start(ctx)
                 SyncWorker.schedule(ctx)
                 SyncWorker.now(ctx, "all")
             }

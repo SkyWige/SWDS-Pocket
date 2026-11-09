@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -17,6 +18,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.InputDevice
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -136,6 +140,7 @@ class MainActivity : Activity() {
         visible = true
         if (!Prefs(this).paired) { startActivity(Intent(this, PairActivity::class.java)); finish(); return }
         val app = applicationContext
+        TrackService.start(this)                                    // «Записывать маршруты» — запуск, пока приложение на экране
         Thread {
             runCatching { Bridge.hello(this) }
             main.post { applyTheme() }
@@ -174,6 +179,42 @@ class MainActivity : Activity() {
         if (current?.get() === this) { current = null; MediaHub.clearLocal(this) }
         if (::web.isInitialized) runCatching { web.destroy() }
         super.onDestroy()
+    }
+
+    // ───────── геймпад → игровой режим консоли ВМ ─────────
+    private var padToJs = false
+    private var padAxes = FloatArray(8)
+
+    private fun isPad(src: Int) = (src and InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+        (src and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+
+    override fun dispatchKeyEvent(e: KeyEvent): Boolean {
+        if (padToJs && ::web.isInitialized && isPad(e.source)) {
+            val idx = PAD_KEYS[e.keyCode]
+            if (idx != null) {
+                if (e.repeatCount == 0 && (e.action == KeyEvent.ACTION_DOWN || e.action == KeyEvent.ACTION_UP))
+                    web.evaluateJavascript("window.SWDSPad&&SWDSPad.key($idx,${e.action == KeyEvent.ACTION_DOWN})", null)
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(e)
+    }
+
+    override fun dispatchGenericMotionEvent(e: MotionEvent): Boolean {
+        if (padToJs && ::web.isInitialized && (e.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+            && e.action == MotionEvent.ACTION_MOVE) {
+            val v = floatArrayOf(e.getAxisValue(MotionEvent.AXIS_X), e.getAxisValue(MotionEvent.AXIS_Y),
+                e.getAxisValue(MotionEvent.AXIS_Z), e.getAxisValue(MotionEvent.AXIS_RZ),
+                maxOf(e.getAxisValue(MotionEvent.AXIS_LTRIGGER), e.getAxisValue(MotionEvent.AXIS_BRAKE)),
+                maxOf(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS)),
+                e.getAxisValue(MotionEvent.AXIS_HAT_X), e.getAxisValue(MotionEvent.AXIS_HAT_Y))
+            if (v.indices.any { kotlin.math.abs(v[it] - padAxes[it]) > 0.02f }) {
+                padAxes = v
+                web.evaluateJavascript("window.SWDSPad&&SWDSPad.axes([${v.joinToString(",") { "%.3f".format(java.util.Locale.US, it) }}])", null)
+            }
+            return true
+        }
+        return super.dispatchGenericMotionEvent(e)
     }
 
     @Deprecated("Deprecated in Java")
@@ -321,6 +362,7 @@ class MainActivity : Activity() {
                 "✅  Задачи" to "/modules/tasks/window",
                 "📝  Заметки" to "/modules/notes_manager/window",
                 "📍  Геолокация" to "/modules/geolocation/window",
+                "🛣  Карта передвижений" to "/modules/travels/window",
                 "📚  Библиотека и читалка (без связи)" to "#library",
                 "📴  Без связи: данные на телефоне" to "#offline"
             ),
@@ -449,6 +491,9 @@ class MainActivity : Activity() {
             bar.visibility = View.VISIBLE
             highlight(url)
             if (pageImmersive) { pageImmersive = false; applyImmersive() }  // новая страница — панель снова нужна
+            if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED      // ориентацию фиксирует только консоль ВМ
+            padToJs = false
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
@@ -626,6 +671,16 @@ class MainActivity : Activity() {
         @JavascriptInterface fun remoteShare() = main.post { startActivity(RemoteHostActivity.intent(this@MainActivity)) }
 
         @JavascriptInterface fun immersive(on: Boolean) = main.post { pageImmersive = on; applyImmersive() }
+        /** Консоль ВМ: зафиксировать ориентацию экрана — landscape | portrait | auto. */
+        @JavascriptInterface fun orientation(mode: String) = main.post {
+            requestedOrientation = when (mode) {
+                "landscape" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                "portrait" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+        }
+        /** Игровой режим консоли ВМ: кнопки и стики геймпада — странице (а «B» не работает как «Назад»). */
+        @JavascriptInterface fun gamepad(on: Boolean) = main.post { padToJs = on }
         /** offline.html: последняя сводка «Сегодня» и очередь. */
         @JavascriptInterface fun cache(): String = org.json.JSONObject()
             .put("today", runCatching { org.json.JSONObject(Prefs(this@MainActivity).todayCache) }.getOrNull() ?: org.json.JSONObject.NULL)
@@ -658,6 +713,14 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        /** Кнопки геймпада Android → номера кнопок стандартного Gamepad API браузера. */
+        private val PAD_KEYS = mapOf(
+            KeyEvent.KEYCODE_BUTTON_A to 0, KeyEvent.KEYCODE_BUTTON_B to 1, KeyEvent.KEYCODE_BUTTON_X to 2, KeyEvent.KEYCODE_BUTTON_Y to 3,
+            KeyEvent.KEYCODE_BUTTON_L1 to 4, KeyEvent.KEYCODE_BUTTON_R1 to 5, KeyEvent.KEYCODE_BUTTON_L2 to 6, KeyEvent.KEYCODE_BUTTON_R2 to 7,
+            KeyEvent.KEYCODE_BUTTON_SELECT to 8, KeyEvent.KEYCODE_BUTTON_START to 9, KeyEvent.KEYCODE_BUTTON_THUMBL to 10,
+            KeyEvent.KEYCODE_BUTTON_THUMBR to 11, KeyEvent.KEYCODE_DPAD_UP to 12, KeyEvent.KEYCODE_DPAD_DOWN to 13,
+            KeyEvent.KEYCODE_DPAD_LEFT to 14, KeyEvent.KEYCODE_DPAD_RIGHT to 15, KeyEvent.KEYCODE_BUTTON_MODE to 16)
+
         @Volatile var visible = false
         @Volatile var current: java.lang.ref.WeakReference<MainActivity>? = null
 

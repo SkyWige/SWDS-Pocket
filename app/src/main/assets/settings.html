@@ -123,6 +123,10 @@
       <label class="sw"><input type="checkbox" id="rdev"><span></span></label></div>
     <div class="row"><div class="t"><b>Местоположение</b><small id="loc-st">Для модуля «Геолокация» и зон. Нужен доступ к геоданным.</small></div>
       <label class="sw"><input type="checkbox" id="rloc"><span></span></label></div>
+    <div class="row"><div class="t"><b>Записывать маршруты</b><small>GPS-трек для «Карты передвижений» в SWDS: куда ходили по дням и «открытые» дороги. Расстояние SWDS берёт с браслета. Нужен доступ «всегда».</small></div>
+      <label class="sw"><input type="checkbox" id="rtrack"><span></span></label></div>
+    <div class="row" id="trk-row"><div class="t"><b>Точка маршрута</b><small>Чаще — подробнее трек, реже — меньше расход заряда</small></div>
+      <select id="rtrack-int" style="max-width:150px"><option value="10">раз в 10 с</option><option value="20">раз в 20 с</option><option value="30">раз в 30 с</option><option value="60">раз в минуту</option><option value="120">раз в 2 мин</option></select></div>
     <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button></div>
   </div>
 
@@ -190,6 +194,9 @@ function render() {
   $("push").checked = !!st.persistent_push;
   $("rdev").checked = !!st.report_device;
   $("rloc").checked = !!st.report_location;
+  $("rtrack").checked = !!st.track_routes;
+  $("rtrack-int").value = String(st.track_interval || 20);
+  $("trk-row").classList.toggle("hide", !st.track_routes);
   $("rfiles").checked = !!st.receive_files;
   const pm = st.perms || {};
   $("perm-n").innerHTML = pm.notifications ? '<span class="pill ok">разрешены</span>' : '<span class="pill warn">запрещены — уведомления не будут видны</span>';
@@ -297,6 +304,16 @@ $("rloc").onchange = async () => {
   }
   await P.call("save", { report_location: $("rloc").checked }); render();
 };
+$("rtrack").onchange = async () => {
+  if ($("rtrack").checked) {
+    const r = await P.call("permission", { what: "location" });
+    if (!r.granted) { $("rtrack").checked = false; return toast("Нет доступа к геоданным"); }
+    const b = await P.call("permission", { what: "background_location" });
+    if (!b.granted) toast("Для записи в фоне выберите «Разрешить всегда» — иначе трек пишется, только пока приложение открыто");
+  }
+  await P.call("save", { track_routes: $("rtrack").checked }); render();
+};
+$("rtrack-int").onchange = async () => { await P.call("save", { track_interval: +$("rtrack-int").value }); toast("Сохранено"); };
 $("bgloc").onclick = async () => {
   const r = await P.call("permission", { what: "location" });
   if (!r.granted) return toast("Сначала разрешите доступ к геоданным");
