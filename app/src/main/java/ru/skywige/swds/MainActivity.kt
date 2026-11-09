@@ -309,6 +309,8 @@ class MainActivity : Activity() {
         val groups = listOf(
             "Телефон и компьютер" to listOf(
                 "🎛  Пульт: мышь, клавиатура, экран ПК" to "/modules/mobile/remote",
+                "🖥  Устройства: экран ПК и телефонов" to "/modules/remote_control/window",
+                "💻  Виртуальные машины" to "/modules/virtualization/pocket",
                 "📤  Отправить файл на ПК" to "#send",
                 "🔄  Синхронизация папок" to "#sync",
                 "📲  Лента уведомлений телефона" to "/modules/mobile/window#feed",
