@@ -50,8 +50,29 @@ class LibraryActivity : LocalPageActivity() {
         "lib_clear" -> { Library.clearAll(this); ok() }
         "open_reader" -> {
             val bid = a.optString("id")
-            if (Library.isLocal(this, bid)) { main.post { startActivity(Intent(this, ReaderActivity::class.java).putExtra("id", bid)) }; ok() }
-            else { SyncWorker.now(this, "library", manual = true); err("Книга ещё не скачана — начал скачивать") }
+            if (bid.isEmpty()) err("Не выбрана книга")
+            else if (Library.isLocal(this, bid)) { main.post { startActivity(Intent(this, ReaderActivity::class.java).putExtra("id", bid)) }; ok() }
+            else {
+                // не скачана: качаем её первой, страница сама откроет книгу, когда она появится
+                Library.wanted = bid
+                SyncWorker.now(this, "library", manual = true)
+                ok(JSONObject().put("downloading", true))
+            }
+        }
+        "lib_download" -> { Library.wanted = a.optString("id"); SyncWorker.now(this, "library", manual = true); ok() }
+        "lib_open_with" -> {
+            val f = Library.originalFile(this, a.optString("id"))
+            if (f == null) err("Этот формат открывается только в читалке") else {
+                main.post {
+                    runCatching {
+                        val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
+                        val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(f.extension.lowercase()) ?: "*/*"
+                        startActivity(Intent.createChooser(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Открыть в…"))
+                    }.onFailure { Events.toast(this, "Нет приложения для этого файла") }
+                }
+                ok()
+            }
         }
         else -> super.handle(id, method, a)
     }

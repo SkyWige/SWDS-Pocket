@@ -58,3 +58,15 @@ label.f > input, label.f > select, label.f > textarea { margin-top: 6px; font-we
 .err { color: #dc2626; font-size: 13.5px; margin-top: 8px; }
 .ok { color: #059669; font-size: 13.5px; margin-top: 8px; }
 .hide { display: none !important; }
+
+/* 1.7.1: плавность и отклик во всех экранах приложения */
+html { scroll-behavior: smooth; }
+.btn, .chip, .sec-tabs button, .sw span, .card { transition: transform .15s cubic-bezier(.2,.8,.2,1), background-color .2s, border-color .2s, color .2s, box-shadow .2s; }
+.btn:active, .chip:active, .sec-tabs button:active { transform: scale(.96); }
+.card { border-radius: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04); animation: appIn .35s cubic-bezier(.2,.8,.2,1) both; }
+.toast { border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.35); animation: toastIn .28s cubic-bezier(.2,.8,.2,1); }
+input[type=text], input[type=url], input[type=number], textarea, select { transition: border-color .2s, box-shadow .2s; }
+input:focus, textarea:focus, select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+@keyframes appIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
