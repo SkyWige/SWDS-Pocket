@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Игры телефона</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+body { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+.top { padding-top: calc(22px + env(safe-area-inset-top)); }
+.kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kpi div { background: color-mix(in srgb, var(--text) 4%, transparent); border-radius: 13px; padding: 12px 6px; text-align: center; }
+.kpi b { display: block; font-size: 19px; } .kpi span { font-size: 11.5px; color: var(--muted); }
+.g { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 8px; }
+.g img, .g .ph { width: 48px; height: 48px; border-radius: 13px; flex: none; object-fit: cover; }
+.g .ph { background: var(--soft); display: grid; place-items: center; font-size: 22px; }
+.g .t { flex: 1; min-width: 0; } .g .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g .t small { display: block; color: var(--muted); font-size: 12.5px; }
+.g .bar { height: 4px; border-radius: 9px; background: var(--line); margin-top: 6px; overflow: hidden; } .g .bar i { display: block; height: 100%; background: var(--accent); }
+.g .play { width: 42px; height: 42px; border-radius: 13px; border: 0; background: var(--accent); color: #fff; font-size: 16px; flex: none; }
+.g .x { width: 34px; height: 42px; border: 0; background: none; color: var(--muted); font-size: 18px; flex: none; }
+.g.run { border-color: var(--accent); box-shadow: 0 0 0 3px var(--soft); }
+.empty { text-align: center; color: var(--muted); padding: 30px 16px; } .empty div { font-size: 42px; }
+.app { display: flex; align-items: center; gap: 10px; padding: 11px 2px; border-top: 1px solid var(--line); } .app:first-child { border: 0; } .app b { flex: 1; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec { margin: 18px 4px 8px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+</style></head>
+<body>
+<div class="top"><h1>🕹 Игры телефона</h1><p id="sub">Список игр и время в них — для модуля «Игры» SWDS</p></div>
+<div class="wrap" id="v-main">
+  <div class="card">
+    <div class="kpi"><div><b id="k-t">—</b><span>сегодня</span></div><div><b id="k-w">—</b><span>за 7 дней</span></div><div><b id="k-n">0</b><span>игр</span></div></div>
+    <div class="row" style="margin-top:8px"><div class="t"><b>Отправлять в «Игры» SWDS</b><small id="st">Игры телефона появятся в общей библиотеке, время сложится с компьютером</small></div>
+      <label class="sw"><input type="checkbox" id="on"><span></span></label></div>
+    <div class="row" id="acc-row"><div class="t"><b>Доступ к истории использования</b><small id="acc-st"></small></div><button class="btn sm" id="acc">Открыть</button></div>
+    <div class="btns"><button class="btn sm" id="sync">Синхронизировать</button><button class="btn sm" id="web">Библиотека в SWDS</button><button class="btn sm" id="add">＋ Отметить игру</button></div>
+  </div>
+  <div id="list"></div>
+</div>
+<div class="wrap hide" id="v-add">
+  <div class="card"><h2>Какое приложение — игра?</h2><p class="muted" style="margin:0 0 10px">Android знает не про все игры. Отметьте недостающие — они появятся в списке и начнут считаться.</p>
+    <input type="text" id="aq" placeholder="Найти приложение…"><div id="apps" style="margin-top:8px"></div>
+    <div class="btns"><button class="btn full" id="add-back">Готово</button></div></div>
+</div>
+<script>
+let D = { games: [] }, APPS = [];
+const dur = s => !s ? "—" : s < 60 ? "<1 мин" : s < 3600 ? Math.round(s / 60) + " мин" : Math.floor(s / 3600) + " ч " + Math.round(s % 3600 / 60) + " мин";
+const ago = ts => { if (!ts) return "давно не запускалась"; const d = Date.now() / 1000 - ts; return d < 3600 ? "играл только что" : d < 86400 ? "сегодня" : d < 172800 ? "вчера" : Math.floor(d / 86400) + " дн. назад"; };
+async function load() {
+  const r = await P.call("games"); if (!r.ok) return toast(r.error || "Ошибка");
+  D = r; render();
+}
+function render() {
+  const gs = D.games || [], t = gs.reduce((s, g) => s + g.today, 0), w = gs.reduce((s, g) => s + g.week, 0), max = Math.max(1, ...gs.map(g => g.week));
+  const short = x => dur(x).replace(" ч ", "ч ").replace(" мин", "м");
+  $("k-t").textContent = D.usage_access ? short(t) : "—"; $("k-w").textContent = D.usage_access ? short(w) : "—"; $("k-n").textContent = gs.length;
+  $("on").checked = !!D.enabled;
+  $("st").textContent = D.enabled ? (D.last_result || "Первая отправка — в течение 15 минут") : "Игры телефона появятся в общей библиотеке, время сложится с компьютером";
+  $("acc-st").innerHTML = D.usage_access ? '<span class="pill ok">разрешён</span> — время в играх считается' : '<span class="pill warn">нет доступа</span> Без него виден только список игр, без времени. В открывшемся списке найдите SWDS и включите.';
+  $("acc").classList.toggle("hide", !!D.usage_access);
+  $("sync").disabled = !D.paired;
+  $("list").innerHTML = gs.length ? '<div class="sec">Установленные игры</div>' + gs.map(g => `<div class="g ${g.running ? "run" : ""}" data-p="${esc(g.pkg)}">
+    ${g.icon ? `<img src="data:image/png;base64,${g.icon}" alt="">` : '<div class="ph">🎮</div>'}
+    <div class="t"><b>${esc(g.label)}</b><small>${g.running ? "▶ запущена сейчас · " : ""}${D.usage_access ? (g.week ? (g.today ? "сегодня " + dur(g.today) + " · " : "") + "неделя " + dur(g.week) : ago(g.last)) : human(g.size)}</small>
+      ${g.week ? `<div class="bar"><i style="width:${Math.max(3, g.week / max * 100)}%"></i></div>` : ""}</div>
+    <button class="x" data-a="hide" title="Это не игра">✕</button><button class="play" data-a="play">▶</button></div>`).join("")
+    : `<div class="empty"><div>🎮</div><p>Игр не нашлось. Если они есть — отметьте их кнопкой «＋ Отметить игру».</p></div>`;
+}
+$("list").onclick = async e => {
+  const el = e.target.closest(".g"), a = e.target.closest("[data-a]"); if (!el || !a) return;
+  const g = D.games.find(x => x.pkg === el.dataset.p);
+  if (a.dataset.a === "play") { const r = await P.call("games_launch", { pkg: g.pkg }); if (!r.ok) toast(r.error); return; }
+  if (confirm(`Убрать «${g.label}» из игр? Вернуть можно через «＋ Отметить игру».`)) { await P.call("games_mark", { pkg: g.pkg, game: false }); load(); }
+};
+$("on").onchange = async () => { await P.call("games_enable", { on: $("on").checked }); if ($("on").checked && !D.usage_access) toast("Включите доступ к истории использования — иначе время не считается"); setTimeout(load, 1500); load(); };
+$("acc").onclick = () => P.call("usage_access");
+$("sync").onclick = async () => { $("sync").disabled = true; $("sync").textContent = "Отправляю…"; const r = await P.call("games_sync"); $("sync").textContent = "Синхронизировать";
+  toast(r.ok ? `Игр: ${r.games}, новых сеансов: ${r.sessions_added}` : (r.error || "Нет связи с SWDS")); load(); };
+$("web").onclick = () => P.call("open_main", { path: "/modules/games/window" });
+function drawApps() { const q = $("aq").value.trim().toLowerCase();
+  $("apps").innerHTML = APPS.filter(a => !q || a.label.toLowerCase().includes(q)).slice(0, 80).map(a => `<div class="app"><b>${esc(a.label)}</b>${a.hidden ? '<span class="pill">скрыта</span>' : ""}<button class="btn sm" data-p="${esc(a.pkg)}">Это игра</button></div>`).join("") || '<p class="muted">Ничего не найдено</p>'; }
+$("add").onclick = async () => { $("v-main").classList.add("hide"); $("v-add").classList.remove("hide"); window.scrollTo(0, 0); $("apps").innerHTML = '<p class="muted">Загрузка…</p>'; const r = await P.call("games_apps"); APPS = r.apps || []; drawApps(); };
+$("aq").oninput = drawApps;
+$("apps").onclick = async e => { const b = e.target.closest("[data-p]"); if (!b) return; await P.call("games_mark", { pkg: b.dataset.p, game: true }); APPS = APPS.filter(a => a.pkg !== b.dataset.p); drawApps(); toast("Добавлено в игры"); };
+$("add-back").onclick = () => { $("v-add").classList.add("hide"); $("v-main").classList.remove("hide"); load(); };
+window.addEventListener("focus", load);
+load();
+</script>
+</body></html>

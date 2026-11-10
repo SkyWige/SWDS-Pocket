@@ -27,4 +27,8 @@
     <string name="daily_note">Заметка дня</string>
     <string name="library">Библиотека</string>
     <string name="reader">Читалка</string>
+    <string name="passwords">Пароли SWDS</string>
+    <string name="pass_autofill">Пароли SWDS</string>
+    <string name="places">Мои места</string>
+    <string name="phone_games">Игры телефона</string>
 </resources>

@@ -123,11 +123,20 @@
       <label class="sw"><input type="checkbox" id="rdev"><span></span></label></div>
     <div class="row"><div class="t"><b>Местоположение</b><small id="loc-st">Для модуля «Геолокация» и зон. Нужен доступ к геоданным.</small></div>
       <label class="sw"><input type="checkbox" id="rloc"><span></span></label></div>
-    <div class="row"><div class="t"><b>Записывать маршруты</b><small>GPS-трек для «Карты передвижений» в SWDS: куда ходили по дням и «открытые» дороги. Расстояние SWDS берёт с браслета. Нужен доступ «всегда».</small></div>
+    <div class="row"><div class="t"><b>Записывать маршруты и места</b><small>Для «Карты передвижений» в SWDS и журнала «Мои места» на телефоне: подробный GPS-трек или только места, где вы были. Копится и без связи. Нужен доступ «всегда».</small></div>
       <label class="sw"><input type="checkbox" id="rtrack"><span></span></label></div>
-    <div class="row" id="trk-row"><div class="t"><b>Точка маршрута</b><small>Чаще — подробнее трек, реже — меньше расход заряда</small></div>
+    <div class="row trk"><div class="t"><b>Что записывать</b><small id="tm-hint"></small></div>
+      <select id="rtrack-mode" style="max-width:150px"><option value="route">маршрут</option><option value="places">только места</option></select></div>
+    <div class="row trk" id="plc-row"><div class="t"><b>Отметка места</b><small>Пока вы на месте — одна запись «с … до …». Работает без связи с сервером</small></div>
+      <select id="rplaces-int" style="max-width:150px"><option value="2">раз в 2 мин</option><option value="5">раз в 5 мин</option><option value="10">раз в 10 мин</option><option value="15">раз в 15 мин</option><option value="30">раз в 30 мин</option><option value="60">раз в час</option><option value="120">раз в 2 часа</option></select></div>
+    <div class="row trk" id="trk-row"><div class="t"><b>Точка маршрута</b><small>Чаще — подробнее трек, реже — меньше расход заряда</small></div>
       <select id="rtrack-int" style="max-width:150px"><option value="10">раз в 10 с</option><option value="20">раз в 20 с</option><option value="30">раз в 30 с</option><option value="60">раз в минуту</option><option value="120">раз в 2 мин</option></select></div>
-    <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button></div>
+    <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button><button class="btn sm" id="open-places">📍 Мои места</button></div>
+  </div>
+  <div class="card" data-sec="data">
+    <h2>Личное</h2>
+    <div class="row"><div class="t"><b>🔐 Пароли</b><small>Поиск по хранилищу SWDS, отпечаток, автозаполнение в приложениях</small></div><button class="btn sm" id="open-pass">Открыть</button></div>
+    <div class="row"><div class="t"><b>🕹 Игры телефона</b><small id="games-st">Список игр и время в них → модуль «Игры»</small></div><button class="btn sm" id="open-games">Открыть</button></div>
   </div>
 
   <div class="card" data-sec="sync">
@@ -196,7 +205,12 @@ function render() {
   $("rloc").checked = !!st.report_location;
   $("rtrack").checked = !!st.track_routes;
   $("rtrack-int").value = String(st.track_interval || 20);
-  $("trk-row").classList.toggle("hide", !st.track_routes);
+  const places = st.track_mode === "places";
+  $("rtrack-mode").value = places ? "places" : "route"; $("rplaces-int").value = String(st.places_interval || 10);
+  document.querySelectorAll(".trk").forEach(r => r.classList.toggle("hide", !st.track_routes));
+  $("trk-row").classList.toggle("hide", !st.track_routes || places); $("plc-row").classList.toggle("hide", !st.track_routes || !places);
+  $("tm-hint").textContent = places ? "Редкие отметки и стоянки «с … до …» — экономит заряд" : "Подробный GPS-трек: каждая улица на карте";
+  $("games-st").textContent = st.games_enabled ? "Включено: игры и время уходят в «Игры» SWDS" : "Список игр и время в них → модуль «Игры»";
   $("rfiles").checked = !!st.receive_files;
   const pm = st.perms || {};
   $("perm-n").innerHTML = pm.notifications ? '<span class="pill ok">разрешены</span>' : '<span class="pill warn">запрещены — уведомления не будут видны</span>';
@@ -313,6 +327,11 @@ $("rtrack").onchange = async () => {
   }
   await P.call("save", { track_routes: $("rtrack").checked }); render();
 };
+$("rtrack-mode").onchange = async () => { await P.call("save", { track_mode: $("rtrack-mode").value }); render(); };
+$("rplaces-int").onchange = async () => { await P.call("save", { places_interval: +$("rplaces-int").value }); toast("Сохранено"); };
+$("open-places").onclick = () => P.call("open_places");
+$("open-pass").onclick = () => P.call("open_passwords");
+$("open-games").onclick = () => P.call("open_games");
 $("rtrack-int").onchange = async () => { await P.call("save", { track_interval: +$("rtrack-int").value }); toast("Сохранено"); };
 $("bgloc").onclick = async () => {
   const r = await P.call("permission", { what: "location" });

@@ -357,6 +357,12 @@ class MainActivity : Activity() {
                 "📲  Лента уведомлений телефона" to "/modules/mobile/window#feed",
                 "📱  Телефон и общая папка" to "/modules/mobile/window"
             ),
+            "Личное" to listOf(
+                "🔐  Пароли: поиск, отпечаток, автозаполнение" to "#passwords",
+                "🎮  Игры: библиотека SWDS" to "/modules/games/window",
+                "🕹  Игры телефона и время в них" to "#games",
+                "📍  Мои места (работает без связи)" to "#places"
+            ),
             "Здоровье и дела" to listOf(
                 "⌚  Браслет: шаги, сон, пульс" to "/modules/bracelet/window",
                 "✅  Задачи" to "/modules/tasks/window",
@@ -373,7 +379,8 @@ class MainActivity : Activity() {
                 "⚡  Команды" to "/ui/commands",
                 "🤖  Автоматизации" to "/ui/scheduler",
                 "🧱  Виджеты" to "/modules/desktop_widgets/window",
-                "🎨  Темы" to "/modules/theme_manager/window"
+                "🎨  Темы" to "/modules/theme_manager/window",
+                "💽  Хранилище: папки и зеркала" to "/ui/storage"
             ),
             "Приложение" to listOf(
                 "⚙  Настройки" to "#settings",
@@ -428,6 +435,9 @@ class MainActivity : Activity() {
             "#reload" -> web.reload()
             "#offline" -> showOffline()
             "#library" -> startActivity(Intent(this, LibraryActivity::class.java))
+            "#passwords" -> startActivity(Intent(this, PassActivity::class.java))
+            "#places" -> startActivity(Intent(this, PlacesActivity::class.java))
+            "#games" -> startActivity(Intent(this, GamesActivity::class.java))
             "#health" -> startActivity(Intent(this, SettingsActivity::class.java).putExtra("section", "health"))
             "#assist" -> startActivity(Intent(this, AssistActivity::class.java))
             "#send" -> startActivity(Intent(this, ShareActivity::class.java).setAction(ShareActivity.A_PICK))
@@ -710,6 +720,15 @@ class MainActivity : Activity() {
         }
         @JavascriptInterface fun syncHealth() = SyncWorker.now(this@MainActivity, "health", manual = true)
         @JavascriptInterface fun openPath(path: String) = main.post { loggedIn = false; open(path) }
+
+        // ── модуль «Игры»: этот телефон как устройство с играми ──
+        /** Id телефона для «Игр» (пусто, пока «Игры телефона» выключены) — страница покажет ▶ у игр, установленных здесь. */
+        @JavascriptInterface fun gamesDeviceId(): String = Prefs(this@MainActivity).let { if (it.gamesEnabled) it.deviceId else "" }
+        @JavascriptInterface fun launchApp(pkg: String): Boolean = PhoneGames.launch(this@MainActivity, pkg)
+        // ── страницы SWDS могут открыть экраны приложения ──
+        @JavascriptInterface fun openPasswords() = main.post { startActivity(Intent(this@MainActivity, PassActivity::class.java)) }
+        @JavascriptInterface fun openPlaces() = main.post { startActivity(Intent(this@MainActivity, PlacesActivity::class.java)) }
+        @JavascriptInterface fun openPhoneGames() = main.post { startActivity(Intent(this@MainActivity, GamesActivity::class.java)) }
     }
 
     companion object {

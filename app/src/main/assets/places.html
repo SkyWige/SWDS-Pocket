@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мои места</title><link rel="stylesheet" href="app.css"><script src="app.js"></script>
+<style>
+body { padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+.top { padding-top: calc(22px + env(safe-area-inset-top)); }
+.now { display: flex; gap: 14px; align-items: center; }
+.now .pin { width: 54px; height: 54px; border-radius: 17px; background: var(--soft); display: grid; place-items: center; font-size: 26px; flex: none; position: relative; }
+.now .pin.live:after { content: ""; position: absolute; inset: -4px; border-radius: 21px; border: 2px solid var(--accent); opacity: .5; animation: pulse 2s ease-out infinite; }
+@keyframes pulse { to { transform: scale(1.25); opacity: 0; } }
+.now b { font-size: 18px; display: block; } .now small { color: var(--muted); font-size: 13px; }
+.kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.kpi div { background: color-mix(in srgb, var(--text) 4%, transparent); border-radius: 13px; padding: 10px 6px; text-align: center; }
+.kpi b { display: block; font-size: 18px; } .kpi span { font-size: 11.5px; color: var(--muted); }
+.chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; } .chip { flex: none; }
+.day { margin: 18px 4px 8px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); display: flex; }
+.day span { margin-left: auto; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.map { width: 100%; height: 150px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 6%, var(--surface)); border: 1px solid var(--line); margin-bottom: 8px; display: block; }
+.tl { position: relative; padding-left: 26px; }
+.tl:before { content: ""; position: absolute; left: 9px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+.v { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }
+.v:before { content: ""; position: absolute; left: -22px; top: 16px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
+.v.pass:before { width: 8px; height: 8px; left: -20px; background: var(--muted); }
+.v.pass { padding: 7px 12px; background: none; border-style: dashed; }
+.v .h { display: flex; gap: 8px; align-items: baseline; } .v .h b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v .h i { font-style: normal; font-weight: 700; color: var(--accent); font-size: 13.5px; white-space: nowrap; }
+.v small { color: var(--muted); font-size: 12.5px; }
+.v .act { display: none; gap: 6px; flex-wrap: wrap; margin-top: 9px; } .v.open .act { display: flex; }
+.v .nm { display: none; gap: 6px; margin-top: 9px; } .v.naming .nm { display: flex; } .v.naming .act { display: none; }
+.topp { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; } .topp:first-of-type { border: 0; }
+.topp .bar { flex: 1; height: 7px; border-radius: 9px; background: var(--line); overflow: hidden; } .topp .bar i { display: block; height: 100%; background: var(--accent); }
+.topp b { width: 36%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; } .topp span { width: 64px; text-align: right; color: var(--muted); font-size: 12.5px; }
+.empty { text-align: center; color: var(--muted); padding: 30px 16px; } .empty div { font-size: 42px; }
+.warn { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #f59e0b 14%, transparent); color: #b45309; font-size: 13px; }
+</style></head>
+<body>
+<div class="top"><h1>📍 Мои места</h1><p id="sub">Журнал ведётся на телефоне — связь с сервером не нужна</p></div>
+<div class="wrap">
+  <div class="card">
+    <div class="now"><div class="pin" id="pin">📍</div><div style="flex:1;min-width:0"><b id="now-t">—</b><small id="now-s"></small></div>
+      <label class="sw"><input type="checkbox" id="on"><span></span></label></div>
+    <div class="kpi"><div><b id="k-n">0</b><span>мест за период</span></div><div><b id="k-t">—</b><span>на местах</span></div><div><b id="k-q">0</b><span>ждут отправки</span></div></div>
+    <div id="warn"></div>
+  </div>
+
+  <div class="card" id="setup">
+    <h2>Как записывать</h2>
+    <div class="chips" id="mode"><span class="chip" data-m="places">📍 Только места · экономно</span><span class="chip" data-m="route">🛣 Подробный маршрут</span></div>
+    <div id="int-box"><p class="muted" style="margin:12px 0 8px">Отмечаться раз в</p>
+      <div class="chips" id="int"></div>
+      <p class="muted" style="margin:10px 0 0">Пока вы на одном месте, остаётся одна запись «с … до …». Реже отметка — меньше расход заряда, но короткие остановки могут не попасть в журнал.</p></div>
+    <div class="btns"><button class="btn sm" id="b-now">Отметиться сейчас</button><button class="btn sm" id="b-send">Отправить в SWDS</button><button class="btn sm" id="b-exp">Экспорт</button></div>
+  </div>
+
+  <div class="chips" id="range" style="margin:4px 0 2px"><span class="chip on" data-r="1">Сегодня</span><span class="chip" data-r="2">Вчера</span><span class="chip" data-r="7">7 дней</span><span class="chip" data-r="30">Месяц</span><span class="chip" data-r="0">Всё</span></div>
+  <div class="card hide" id="top-card"><h2>Где бываю чаще всего</h2><div id="top"></div></div>
+  <div id="days"></div>
+  <div class="btns hide" id="foot"><button class="btn danger sm" id="b-clear">Очистить журнал</button><button class="btn sm" id="b-map">Карта передвижений в SWDS</button></div>
+</div>
+<script>
+let D = { visits: [], labels: [] }, range = 1;
+const INT = [2, 5, 10, 15, 30, 60, 120];
+const intName = m => m >= 60 ? (m / 60) + " ч" : m + " мин";
+const hm = ts => new Date(ts * 1000).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const dur = s => s < 60 ? "меньше минуты" : s < 3600 ? Math.round(s / 60) + " мин" : Math.floor(s / 3600) + " ч" + (Math.round(s % 3600 / 60) ? " " + Math.round(s % 3600 / 60) + " мин" : "");
+const dayKey = ts => { const d = new Date(ts * 1000); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+const dayName = ts => { const d = new Date(ts * 1000), t = new Date(), y = new Date(Date.now() - 864e5);
+  return d.toDateString() === t.toDateString() ? "Сегодня" : d.toDateString() === y.toDateString() ? "Вчера" : d.toLocaleDateString("ru-RU", { weekday: "short", day: "numeric", month: "long" }); };
+function dist(a, b) { const R = 6371000, p = Math.PI / 180, x = (b.lng - a.lng) * p * Math.cos((a.lat + b.lat) / 2 * p), y = (b.lat - a.lat) * p; return Math.sqrt(x * x + y * y) * R; }
+function label(v) { let best = "", bd = 250; for (const l of D.labels) { const d = dist(l, v); if (d < bd) { bd = d; best = l.name; } } return best; }
+const coords = v => v.lat.toFixed(4) + ", " + v.lng.toFixed(4);
+
+function bounds() {
+  const t = new Date(); t.setHours(0, 0, 0, 0); const d0 = t.getTime() / 1000;
+  if (range === 1) return [d0, 4e9]; if (range === 2) return [d0 - 86400, d0]; if (range === 0) return [0, 4e9];
+  return [d0 - (range - 1) * 86400, 4e9];
+}
+async function load() {
+  const [from, to] = bounds();
+  const r = await P.call("places", { from, to });
+  if (!r.ok) return toast(r.error || "Ошибка");
+  D = r; D.labels = r.labels || []; D.visits = r.visits || [];
+  render();
+}
+function render() {
+  const cur = D.current, now = Date.now() / 1000;
+  $("on").checked = !!D.on;
+  $("pin").classList.toggle("live", !!D.on);
+  if (cur) { $("now-t").textContent = label(cur) || coords(cur); $("now-s").textContent = "с " + hm(cur.from) + (dayKey(cur.from) !== dayKey(now) ? " (" + dayName(cur.from).toLowerCase() + ")" : "") + " · " + dur(cur.until - cur.from) + " · отметка " + hm(cur.until); }
+  else { $("now-t").textContent = D.on ? "Жду первую отметку" : "Запись выключена"; $("now-s").textContent = D.on ? "Обычно она появляется в течение пары минут" : "Включите — и телефон начнёт вести журнал мест"; }
+  const stays = D.visits.filter(v => v.until - v.from >= 60);
+  $("k-n").textContent = stays.length; $("k-t").textContent = stays.length ? dur(stays.reduce((s, v) => s + v.until - v.from, 0)).replace(" мин", "м").replace(" ч", "ч") : "—";
+  $("k-q").textContent = D.pending || 0;
+  const pm = D.perms || {};
+  $("warn").innerHTML = (D.on && !pm.location ? '<div class="warn">Нет доступа к геоданным — журнал не ведётся. <a href="#" id="w-perm">Разрешить</a></div>' : "") +
+    (D.on && pm.location && !pm.background_location ? '<div class="warn">Доступ к геоданным только при открытом приложении. Чтобы журнал вёлся в фоне, выберите «Разрешить всегда». <a href="#" id="w-bg">Настроить</a></div>' : "") +
+    (D.on && !pm.battery ? '<div class="warn">Android экономит заряд и может останавливать запись. <a href="#" id="w-bat">Снять ограничение</a></div>' : "");
+  [["w-perm", () => ask(false)], ["w-bg", () => ask(true)], ["w-bat", () => P.call("battery_opt")]].forEach(([i, f]) => { const e = $(i); if (e) e.onclick = ev => { ev.preventDefault(); f(); }; });
+  document.querySelectorAll("#mode .chip").forEach(c => c.classList.toggle("on", c.dataset.m === D.mode));
+  $("int-box").classList.toggle("hide", D.mode !== "places");
+  $("int").innerHTML = INT.map(m => `<span class="chip ${m === D.interval ? "on" : ""}" data-i="${m}">${intName(m)}</span>`).join("");
+  $("b-send").disabled = !D.pending || !D.paired;
+  renderTop(stays); renderDays();
+  $("foot").classList.toggle("hide", !D.count);
+}
+function renderTop(stays) {
+  const g = [];
+  for (const v of stays) { const name = label(v); let c = g.find(x => name ? x.name === name : !x.name && dist(x, v) < 200);
+    if (!c) g.push(c = { name, lat: v.lat, lng: v.lng, sec: 0, n: 0 }); c.sec += v.until - v.from; c.n++; }
+  g.sort((a, b) => b.sec - a.sec);
+  $("top-card").classList.toggle("hide", g.length < 2 || range === 1);
+  const max = g.length ? g[0].sec : 1;
+  $("top").innerHTML = g.slice(0, 6).map(c => `<div class="topp"><b>${esc(c.name || coords(c))}</b><div class="bar"><i style="width:${Math.max(4, c.sec / max * 100)}%"></i></div><span>${dur(c.sec).replace("меньше минуты", "<1 мин")}</span></div>`).join("");
+}
+function mini(vs) {
+  if (vs.length < 2) return "";
+  const la = vs.map(v => v.lat), lo = vs.map(v => v.lng), k = Math.cos(la[0] * Math.PI / 180);
+  let x0 = Math.min(...lo) * k, x1 = Math.max(...lo) * k, y0 = Math.min(...la), y1 = Math.max(...la);
+  if (Math.max(x1 - x0, y1 - y0) < 0.0015) return "";
+  const W = 320, H = 150, pad = 18, s = Math.min((W - 2 * pad) / Math.max(1e-9, x1 - x0), (H - 2 * pad) / Math.max(1e-9, y1 - y0));
+  const px = v => [(W - (x1 - x0) * s) / 2 + (v.lng * k - x0) * s, H - ((H - (y1 - y0) * s) / 2 + (v.lat - y0) * s)];
+  const pts = vs.slice().reverse().map(px);
+  return `<svg class="map" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"><polyline points="${pts.map(p => p.map(n => n.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--accent)" stroke-opacity=".45" stroke-width="2" stroke-linejoin="round" stroke-dasharray="1 5" stroke-linecap="round"/>
+    ${vs.slice().reverse().map((v, i) => { const [x, y] = pts[i], st = v.until - v.from >= 60, r = st ? Math.min(11, 4 + Math.sqrt((v.until - v.from) / 600)) : 2.5;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="var(--accent)" fill-opacity="${st ? .85 : .4}"/>`; }).join("")}</svg>`;
+}
+function renderDays() {
+  if (!D.visits.length) { $("days").innerHTML = `<div class="empty"><div>🗺</div><p>${D.count ? "За этот период отметок нет" : "Журнал пока пуст. Включите запись — места появятся сами, даже без интернета."}</p></div>`; return; }
+  const by = {}; D.visits.forEach(v => (by[dayKey(v.until)] = by[dayKey(v.until)] || []).push(v));
+  $("days").innerHTML = Object.values(by).map(vs => {
+    const stay = vs.filter(v => v.until - v.from >= 60);
+    return `<div class="day">${dayName(vs[0].until)}<span>${stay.length ? "мест: " + stay.length : ""}</span></div>${mini(vs)}<div class="tl">` + vs.map(v => {
+      const st = v.until - v.from >= 60, n = label(v);
+      return `<div class="v ${st ? "" : "pass"}" data-id="${v.id}"><div class="h"><b>${esc(n || coords(v))}</b><i>${st ? hm(v.from) + " – " + (v.open ? "сейчас" : hm(v.until)) : hm(v.from)}</i></div>
+        ${st ? `<small>${dur(v.until - v.from)}${dayKey(v.from) !== dayKey(v.until) ? " · с " + dayName(v.from).toLowerCase() : ""}${n ? " · " + coords(v) : ""}</small>` : ""}
+        <div class="act"><button class="btn sm" data-a="name">${n ? "Переименовать" : "Назвать"}</button><button class="btn sm" data-a="map">На карте</button><button class="btn sm danger" data-a="del">Удалить</button></div>
+        <div class="nm"><input type="text" placeholder="Дом, работа, дача…" value="${esc(n)}" maxlength="40"><button class="btn sm pri" data-a="ok">OK</button></div></div>`; }).join("") + "</div>";
+  }).join("");
+}
+$("days").addEventListener("click", async e => {
+  const el = e.target.closest(".v"); if (!el) return;
+  const v = D.visits.find(x => String(x.id) === el.dataset.id), a = (e.target.closest("[data-a]") || {}).dataset;
+  if (!a) { if (e.target.tagName === "INPUT") return; const o = el.classList.contains("open"); document.querySelectorAll(".v.open,.v.naming").forEach(x => x.classList.remove("open", "naming")); if (!o) el.classList.add("open"); return; }
+  if (a.a === "name") { el.classList.add("naming"); el.querySelector("input").focus(); return; }
+  if (a.a === "ok") { await P.call("place_label", { lat: v.lat, lng: v.lng, name: el.querySelector("input").value.trim() }); return load(); }
+  if (a.a === "map") return P.call("open_map", { lat: v.lat, lng: v.lng });
+  if (a.a === "del" && confirm("Удалить эту запись из журнала на телефоне?")) { await P.call("place_delete", { id: v.id }); load(); }
+});
+async function ask(bg) {
+  const r = await P.call("permission", { what: "location" });
+  if (!r.granted) { toast("Нет доступа к геоданным"); return false; }
+  if (bg !== false) { const b = await P.call("permission", { what: "background_location" }); if (!b.granted) toast("Для записи в фоне выберите «Разрешить всегда»"); }
+  load(); return true;
+}
+$("on").onchange = async () => {
+  const on = $("on").checked;
+  if (on && !(await ask())) { $("on").checked = false; return; }
+  await P.call("places_setup", { on, mode: D.on ? D.mode : "places" });
+  toast(on ? "Запись включена" : "Запись выключена"); setTimeout(load, 400);
+};
+$("mode").onclick = async e => { const c = e.target.closest(".chip"); if (!c) return; await P.call("places_setup", { mode: c.dataset.m }); load(); };
+$("int").onclick = async e => { const c = e.target.closest(".chip"); if (!c) return; await P.call("places_setup", { interval: +c.dataset.i }); load(); };
+$("range").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; range = +c.dataset.r; document.querySelectorAll("#range .chip").forEach(x => x.classList.toggle("on", x === c)); load(); };
+$("b-now").onclick = async () => { const r = await P.call("places_now"); toast(r.ok ? "Определяю, где вы…" : r.error); if (r.ok) setTimeout(load, 6000); };
+$("b-send").onclick = async () => { $("b-send").disabled = true; const r = await P.call("places_send"); toast(r.ok ? "Отправлено точек: " + r.sent : (r.error || "Нет связи с SWDS — отправится позже")); load(); };
+$("b-exp").onclick = async () => { const r = await P.call("places_export"); toast(r.ok ? "Сохранено в Загрузки/SWDS: " + r.name : r.error); };
+$("b-clear").onclick = async () => { if (confirm("Стереть весь журнал мест на телефоне? Точки, уже отправленные в SWDS, останутся там.")) { await P.call("place_delete", { id: 0 }); load(); } };
+$("b-map").onclick = () => P.call("open_main", { path: "/modules/travels/window" });
+window.addEventListener("focus", load);
+setInterval(() => { if (!document.hidden) load(); }, 60000);
+load();
+</script>
+</body></html>

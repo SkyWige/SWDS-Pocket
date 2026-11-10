@@ -22,6 +22,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- отпечаток для разблокировки «Паролей» -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- время в играх телефона: «Доступ к истории использования» человек включает сам в настройках Android -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
@@ -138,6 +144,25 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
             android:label="@string/reader" />
+
+        <!-- Пароли SWDS: поиск, копирование, отпечаток; этот же экран — выбор записи для автозаполнения -->
+        <activity
+            android:name=".PassActivity"
+            android:exported="true"
+            android:label="@string/passwords"
+            android:excludeFromRecents="true"
+            android:taskAffinity="ru.skywige.swds.pass"
+            android:windowSoftInputMode="adjustResize" />
+        <!-- Мои места: журнал посещений на телефоне -->
+        <activity
+            android:name=".PlacesActivity"
+            android:exported="true"
+            android:label="@string/places" />
+        <!-- Игры телефона и время в них -->
+        <activity
+            android:name=".GamesActivity"
+            android:exported="true"
+            android:label="@string/phone_games" />
 
         <!-- Health Connect требует экран «зачем приложению данные здоровья» (без него разрешения не выдаются) -->
         <activity
@@ -257,6 +282,19 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/remote_a11y" />
+        </service>
+
+        <service
+            android:name=".PassAutofillService"
+            android:exported="true"
+            android:label="@string/pass_autofill"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/autofill_service" />
         </service>
 
         <service

@@ -25,6 +25,9 @@ import org.json.JSONObject
  * без связи — в очередь OfflineQueue и отправляются, когда сервер снова доступен. Пока телефон лежит на месте,
  * GPS почти не тратит заряд: Android не присылает новых точек, если нет движения.
  * Расстояние в SWDS считается по браслету, трек нужен только для карты.
+ *
+ * Режим «только места» (Prefs.trackMode = places): отметка раз в 2–120 минут, без связи с сервером.
+ * Стоянки склеиваются в одну запись «с … до …» (Places), на сервер уходят лишь приход и уход.
  */
 class TrackService : Service(), LocationListener {
     private var thread: HandlerThread? = null
@@ -33,12 +36,15 @@ class TrackService : Service(), LocationListener {
     private var lastSend = 0L
     private var last: Location? = null
     private var count = 0
+    private var places = false
+    private var lastPlaceFix = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        val n = notification("Записываю маршрут")
+        places = Prefs(this).trackMode == "places"
+        val n = notification(if (places) "Отмечаю места" else "Записываю маршрут")
         try {
             if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
             else startForeground(ID, n)
@@ -55,10 +61,28 @@ class TrackService : Service(), LocationListener {
     private fun requestUpdates() {
         if (!granted(Manifest.permission.ACCESS_FINE_LOCATION) && !granted(Manifest.permission.ACCESS_COARSE_LOCATION)) { stopSelf(); return }
         val lm = getSystemService(LocationManager::class.java) ?: return
-        val every = Prefs(this).trackInterval.coerceIn(5, 300) * 1000L
+        val p = Prefs(this)
+        places = p.trackMode == "places"
+        val every = if (places) p.placesInterval.coerceIn(2, 120) * 60_000L else p.trackInterval.coerceIn(5, 300) * 1000L
         try {
             lm.removeUpdates(this)
             val providers = lm.getProviders(true)
+            if (places) {
+                // редкие отметки: «слитный» источник сам выбирает Wi-Fi/вышки/GPS и почти не тратит заряд
+                val fused = Build.VERSION.SDK_INT >= 31 && LocationManager.FUSED_PROVIDER in providers
+                if (fused) lm.requestLocationUpdates(LocationManager.FUSED_PROVIDER, every, 0f, this, thread!!.looper)
+                else {
+                    if (LocationManager.NETWORK_PROVIDER in providers)
+                        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, every, 0f, this, thread!!.looper)
+                    if (LocationManager.GPS_PROVIDER in providers && granted(Manifest.permission.ACCESS_FINE_LOCATION))
+                        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, every, 0f, this, thread!!.looper)
+                }
+                // чужие отметки (навигатор, другое приложение) — бесплатно уточняют, где мы
+                if (LocationManager.PASSIVE_PROVIDER in lm.allProviders)
+                    lm.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, every, 0f, this, thread!!.looper)
+                placeStatus()
+                return
+            }
             if (LocationManager.GPS_PROVIDER in providers && granted(Manifest.permission.ACCESS_FINE_LOCATION))
                 lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, every, 12f, this, thread!!.looper)
             if (LocationManager.NETWORK_PROVIDER in providers)
@@ -70,7 +94,31 @@ class TrackService : Service(), LocationListener {
         }
     }
 
+    private fun placeStatus() {
+        val cur = Places.current(this)
+        val every = Prefs(this).placesInterval
+        val step = if (every >= 60) "раз в ${every / 60} ч" else "раз в $every мин"
+        if (cur == null) { update("Отмечаю места $step"); return }
+        val name = Places.labelAt(this, cur.optDouble("lat"), cur.optDouble("lng")).ifEmpty { "на месте" }
+        val since = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(cur.optLong("from") * 1000))
+        update("📍 $name с $since · отметка $step")
+    }
+
+    /** Режим «только места»: не чаще одной отметки за интервал, грубые отметки пропускаем. */
+    private fun onPlaceFix(loc: Location) {
+        if (loc.hasAccuracy() && loc.accuracy > 400) return
+        val every = Prefs(this).placesInterval.coerceIn(2, 120) * 60_000L
+        val now = System.currentTimeMillis()
+        if (now - loc.time > every) return                                // старая отметка из кеша системы
+        if (now - lastPlaceFix < every * 8 / 10) return
+        lastPlaceFix = now
+        count++
+        Places.onFix(this, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy else 0f, loc.time / 1000, upload = true)
+        placeStatus()
+    }
+
     override fun onLocationChanged(loc: Location) {
+        if (places) { onPlaceFix(loc); return }
         val prev = last
         if (loc.hasAccuracy() && loc.accuracy > 150) return            // слишком неточно — лишь шум на карте
         if (prev != null) {
@@ -80,6 +128,8 @@ class TrackService : Service(), LocationListener {
         }
         last = loc
         count++
+        // журнал «Мои места» ведётся и при подробном маршруте (точки на сервер здесь отправляет сам маршрут)
+        runCatching { Places.onFix(this, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy else 0f, loc.time / 1000, upload = false) }
         synchronized(buf) {
             buf.put(JSONObject().put("lat", loc.latitude).put("lng", loc.longitude)
                 .put("accuracy", if (loc.hasAccuracy()) loc.accuracy.toDouble() else JSONObject.NULL)
@@ -114,6 +164,7 @@ class TrackService : Service(), LocationListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == A_FLUSH) handler?.post { flush() }
         if (intent?.action == A_RESTART) handler?.post { requestUpdates() }
+        if (intent?.action == A_NOW) handler?.post { lastPlaceFix = 0L; requestUpdates() }
         return START_STICKY
     }
 
@@ -131,11 +182,13 @@ class TrackService : Service(), LocationListener {
 
     private fun notification(text: String) = NotificationCompat.Builder(this, Notifier.CH_SERVICE)
         .setSmallIcon(R.drawable.ic_stat)
-        .setContentTitle("SWDS · карта передвижений")
+        .setContentTitle(if (places) "SWDS · мои места" else "SWDS · карта передвижений")
         .setContentText(text)
         .setOngoing(true).setSilent(true)
         .setPriority(NotificationCompat.PRIORITY_MIN)
-        .setContentIntent(Notifier.openIntent(this, "/modules/travels/window", 7))
+        .setContentIntent(if (places) android.app.PendingIntent.getActivity(this, 7, Intent(this, PlacesActivity::class.java),
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        else Notifier.openIntent(this, "/modules/travels/window", 7))
         .build()
 
     private fun update(text: String) {
@@ -146,6 +199,7 @@ class TrackService : Service(), LocationListener {
         const val ID = 7
         const val A_FLUSH = "ru.skywige.swds.TRACK_FLUSH"
         const val A_RESTART = "ru.skywige.swds.TRACK_RESTART"
+        const val A_NOW = "ru.skywige.swds.TRACK_NOW"
 
         fun start(ctx: Context) {
             val p = Prefs(ctx)
@@ -159,6 +213,11 @@ class TrackService : Service(), LocationListener {
 
         fun stop(ctx: Context) {
             runCatching { ctx.stopService(Intent(ctx, TrackService::class.java)) }
+        }
+
+        /** «Отметиться сейчас»: не ждать следующего интервала. */
+        fun markNow(ctx: Context) {
+            runCatching { ctx.startService(Intent(ctx, TrackService::class.java).setAction(A_NOW)) }
         }
 
         fun restart(ctx: Context) {

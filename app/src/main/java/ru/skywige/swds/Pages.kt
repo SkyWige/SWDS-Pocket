@@ -303,9 +303,16 @@ class SettingsActivity : LocalPageActivity() {
                     p.trackInterval = a.optInt("track_interval", 20).coerceIn(5, 300)
                     if (p.trackRoutes) TrackService.restart(this)
                 }
+                if (a.has("places_interval")) p.placesInterval = a.optInt("places_interval", 10).coerceIn(2, 120)
+                if (a.has("track_mode")) p.trackMode = a.optString("track_mode")
+                if ((a.has("places_interval") || a.has("track_mode")) && p.trackRoutes) TrackService.restart(this)
                 if (a.has("track_routes")) {
                     p.trackRoutes = a.optBoolean("track_routes")
                     if (p.trackRoutes) TrackService.start(this) else TrackService.stop(this)
+                }
+                if (a.has("games_enabled")) {
+                    p.gamesEnabled = a.optBoolean("games_enabled")
+                    if (p.gamesEnabled) SyncWorker.now(this, "games", manual = true)
                 }
                 if (a.has("receive_files")) p.receiveFiles = a.optBoolean("receive_files")
                 if (a.has("quick_dest")) p.quickDest = a.optString("quick_dest")
@@ -365,6 +372,9 @@ class SettingsActivity : LocalPageActivity() {
                 }
                 ok()
             }
+            "open_places" -> { main.post { startActivity(Intent(this, PlacesActivity::class.java)) }; ok() }
+            "open_games" -> { main.post { startActivity(Intent(this, GamesActivity::class.java)) }; ok() }
+            "open_passwords" -> { main.post { startActivity(Intent(this, PassActivity::class.java)) }; ok() }
             "open_assist" -> { main.post { startActivity(Intent(this, AssistActivity::class.java)) }; ok() }
             "sync_now" -> { SyncWorker.now(this, a.optString("what", "all"), manual = true); ok() }
             // ── здоровье (Health Connect) ──
