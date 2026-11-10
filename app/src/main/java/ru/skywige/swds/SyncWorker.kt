@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit
  *  • обновление виджетов;
  *  • здоровье: Health Connect → «Браслет» SWDS, сводка для виджета «Здоровье»;
  *  • офлайн-снимок задач, заметок, календаря и привычек для работы без связи;
- *  • точки местоположения, накопленные без связи.
+ *  • точки местоположения, накопленные без связи;
+ *  • игры телефона и время в них → модуль «Игры».
  */
 class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
@@ -70,7 +71,13 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
             if (what in setOf("all", "offline")) step("offline") {
                 if (what == "offline") OfflineData.fetch(ctx) else OfflineData.maybeFetch(ctx, 25 * 60_000L)
             }
-            if (what == "all" && OfflineQueue.geoCount(ctx) > 0) step("geo") { OfflineQueue.flushGeo(ctx) }
+            if (what in setOf("all", "geo") && OfflineQueue.geoCount(ctx) > 0) step("geo") { OfflineQueue.flushGeo(ctx) }
+            if (what in setOf("all", "games") && (p.gamesEnabled || what == "games")) step("games") {
+                val manual = inputData.getBoolean("manual", false)
+                val r = PhoneGames.sync(ctx)
+                if (manual) Events.toast(ctx, if (r.optBoolean("ok")) "🎮 Игр: ${r.optInt("games")}, новых сеансов: ${r.optInt("sessions_added")}"
+                    else "⚠ " + r.optString("error"))
+            }
             if (what in setOf("all", "library")) step("library") {
                 val manual = inputData.getBoolean("manual", false)
                 if (p.libraryEnabled || manual) {
@@ -84,7 +91,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
         } catch (e: ApiException) {
             return Result.success()
         }
-        val maxTries = if (what == "queue" || what == "feed") 30 else 2      // очередь ждёт связь долго
+        val maxTries = if (what == "queue" || what == "feed" || what == "geo") 30 else 2      // очередь ждёт связь долго
         return if (failed && runAttemptCount < maxTries && what != "all") Result.retry() else Result.success()
     }
 

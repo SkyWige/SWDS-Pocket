@@ -65,6 +65,60 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("track_interval", 20)
         set(v) = sp.edit().putInt("track_interval", v).apply()
 
+    /** route — подробный трек (точка раз в секунды); places — только места: редкая отметка, стоянки склеиваются. */
+    var trackMode: String
+        get() = if (sp.getString("track_mode", "route") == "places") "places" else "route"
+        set(v) = sp.edit().putString("track_mode", if (v == "places") "places" else "route").apply()
+
+    /** Режим «только места»: как часто отмечаться, минут (2/5/10/15/30/60/120). */
+    var placesInterval: Int
+        get() = sp.getInt("places_interval", 10)
+        set(v) = sp.edit().putInt("places_interval", v).apply()
+
+    /** Свои названия мест: [{name, lat, lng}] — «Дом», «Работа», «Дача». */
+    var placeLabels: JSONArray
+        get() = runCatching { JSONArray(sp.getString("place_labels", "[]")) }.getOrDefault(JSONArray())
+        set(v) = sp.edit().putString("place_labels", v.toString()).apply()
+
+    // ── пароли (канал к модулю «Пароли»: свой ключ, AES-256-GCM) ──
+    /** {u: адрес при подключении, i: id клиента, k: ключ} или пусто. */
+    var passPair: JSONObject?
+        get() = sp.getString("pass_pair", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+        set(v) = sp.edit().apply { if (v == null) remove("pass_pair") else putString("pass_pair", v.toString()) }.apply()
+
+    /** Мастер-пароль, зашифрованный ключом из Android Keystore (открывается отпечатком): «iv.шифр» или пусто. */
+    var passBio: String
+        get() = sp.getString("pass_bio", "") ?: ""
+        set(v) = sp.edit().putString("pass_bio", v).apply()
+
+    /** Через сколько секунд стирать скопированный пароль из буфера обмена (0 — не стирать). */
+    var passClipSec: Int
+        get() = sp.getInt("pass_clip_sec", 30)
+        set(v) = sp.edit().putInt("pass_clip_sec", v).apply()
+
+    // ── игры телефона → модуль «Игры» ──
+    var gamesEnabled: Boolean
+        get() = sp.getBoolean("games_enabled", false)
+        set(v) = sp.edit().putBoolean("games_enabled", v).apply()
+
+    /** Приложения, отмеченные игрой вручную, и игры, скрытые из списка. */
+    var gamesExtra: List<String>
+        get() = jsonList(sp.getString("games_extra", "[]"))
+        set(v) = sp.edit().putString("games_extra", JSONArray(v.distinct()).toString()).apply()
+
+    var gamesHidden: List<String>
+        get() = jsonList(sp.getString("games_hidden", "[]"))
+        set(v) = sp.edit().putString("games_hidden", JSONArray(v.distinct()).toString()).apply()
+
+    /** До какого момента сеансы игр уже отправлены на сервер, мс. */
+    var gamesSynced: Long
+        get() = sp.getLong("games_synced", 0L)
+        set(v) = sp.edit().putLong("games_synced", v).apply()
+
+    var gamesLastResult: String
+        get() = sp.getString("games_last_result", "") ?: ""
+        set(v) = sp.edit().putString("games_last_result", v).apply()
+
     var reportDevice: Boolean
         get() = sp.getBoolean("report_device", true)
         set(v) = sp.edit().putBoolean("report_device", v).apply()
@@ -220,7 +274,8 @@ class Prefs(ctx: Context) {
     val paired: Boolean get() = token.isNotEmpty() && servers.isNotEmpty()
 
     fun unpair() {
-        sp.edit().remove("token").remove("device_id").remove("last_queue_id").remove("active_server").apply()
+        sp.edit().remove("token").remove("device_id").remove("last_queue_id").remove("active_server")
+            .remove("pass_pair").remove("pass_bio").remove("games_synced").apply()
     }
 
     /** Состояние для страниц настроек (assets). */
@@ -229,6 +284,9 @@ class Prefs(ctx: Context) {
         put("device_id", deviceId); put("server_name", serverName); put("paired", paired); put("server_id", serverId)
         put("persistent_push", persistentPush); put("report_location", reportLocation); put("report_device", reportDevice)
         put("track_routes", trackRoutes); put("track_interval", trackInterval)
+        put("track_mode", trackMode); put("places_interval", placesInterval)
+        put("pass_paired", passPair != null); put("pass_bio", passBio.isNotEmpty()); put("pass_clip_sec", passClipSec)
+        put("games_enabled", gamesEnabled)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)
         put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))
