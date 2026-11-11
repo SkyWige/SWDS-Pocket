@@ -10,6 +10,10 @@ import android.widget.RemoteViews
 
 /** Виджет-кнопка 1×1: ассистент, команда SWDS, пульт, отправка файла… (выбирается при добавлении). */
 class ButtonWidget : AppWidgetProvider() {
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(ctx, id)                                           // размер изменился — перерисовать фон и подписи
+    }
+
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
         for (id in ids) render(ctx, id)
     }

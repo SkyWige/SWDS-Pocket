@@ -9,6 +9,10 @@ import android.widget.RemoteViews
 
 /** Виджет быстрой записи: «Заметка» и «Трата» — одно касание, и можно печатать. Работает без связи. */
 class QuickWidget : AppWidgetProvider() {
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(ctx, mgr, id)                                           // размер изменился — перерисовать фон и подписи
+    }
+
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
         for (id in ids) render(ctx, mgr, id)
     }

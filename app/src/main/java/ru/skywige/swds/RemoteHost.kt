@@ -513,6 +513,10 @@ class RemoteGestures(private val size: () -> Pair<Int, Int>) {
 
 /** Виджет подключения: «Компьютер» — сразу на экран ПК, «Мой экран» — разрешить подключиться к телефону. */
 class RemoteWidget : AppWidgetProvider() {
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(ctx, mgr, id)                                           // размер изменился — перерисовать фон и подписи
+    }
+
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
         for (id in ids) render(ctx, mgr, id)
     }
