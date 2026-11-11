@@ -124,6 +124,17 @@ class SwdsWidget : AppWidgetProvider() {
                 fetched > 0 -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(fetched))
                 else -> ""
             })
+            // маленький виджет: прячем время и чип, ужимаем поля — чтобы название помещалось целиком
+            val (wDp, _) = WidgetStyle.sizeDp(ctx, appWidgetId)
+            val compact = wDp < 210
+            val tiny = wDp < 150
+            val stale = data?.optBoolean("stale") == true
+            rv.setViewVisibility(R.id.updated, if (compact && !stale) android.view.View.GONE else android.view.View.VISIBLE)
+            if (compact && stale) rv.setTextViewText(R.id.updated, "⚠")
+            rv.setViewVisibility(R.id.chip_box, if (tiny) android.view.View.GONE else android.view.View.VISIBLE)
+            val d = ctx.resources.displayMetrics.density
+            val padS = ((if (tiny) 8 else if (compact) 10 else 12) * d).toInt()
+            rv.setViewPadding(R.id.content, padS, ((if (compact) 8 else 10) * d).toInt(), ((if (compact) 4 else 8) * d).toInt(), (6 * d).toInt())
             rv.setTextViewText(R.id.empty, when {
                 conf == null -> "Нажмите, чтобы настроить"
                 data == null -> ctx.getString(R.string.loading)

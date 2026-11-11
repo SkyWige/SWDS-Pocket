@@ -3,30 +3,30 @@
     android:id="@+id/root" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="2dp">
     <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent"
         android:src="@drawable/widget_bg" android:scaleType="fitXY" android:contentDescription="@null" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:padding="5dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal" android:padding="3dp">
         <FrameLayout android:id="@+id/q_note" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:layout_margin="4dp" android:clickable="true" android:focusable="true" android:contentDescription="@string/quick_note">
+            android:layout_margin="2dp" android:clickable="true" android:focusable="true" android:contentDescription="@string/quick_note">
             <ImageView android:id="@+id/q_note_bg" android:layout_width="match_parent" android:layout_height="match_parent"
                 android:src="@drawable/row_btn_bg" android:scaleType="fitXY" android:contentDescription="@null" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
-                android:gravity="center" android:padding="4dp">
-                <TextView android:id="@+id/q_note_icon" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:textSize="26sp" android:text="📝" android:gravity="center" />
-                <TextView android:id="@+id/q_note_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:textSize="11.5sp" android:maxLines="1" android:text="@string/quick_note" android:paddingTop="2dp"
+                android:gravity="center" android:padding="2dp">
+                <TextView android:id="@+id/q_note_icon" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                    android:textSize="26sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="12sp" android:autoSizeMaxTextSize="26sp" android:maxLines="1" android:text="📝" android:gravity="center" />
+                <TextView android:id="@+id/q_note_label" android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center"
+                    android:textSize="11.5sp" android:maxLines="1" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="7sp" android:autoSizeMaxTextSize="11.5sp" android:autoSizeStepGranularity="0.5sp" android:text="@string/quick_note" android:paddingTop="2dp"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
         </FrameLayout>
         <FrameLayout android:id="@+id/q_money" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:layout_margin="4dp" android:clickable="true" android:focusable="true" android:contentDescription="@string/quick_expense">
+            android:layout_margin="2dp" android:clickable="true" android:focusable="true" android:contentDescription="@string/quick_expense">
             <ImageView android:id="@+id/q_money_bg" android:layout_width="match_parent" android:layout_height="match_parent"
                 android:src="@drawable/row_btn_bg" android:scaleType="fitXY" android:contentDescription="@null" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
-                android:gravity="center" android:padding="4dp">
-                <TextView android:id="@+id/q_money_icon" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:textSize="26sp" android:text="💸" android:gravity="center" />
-                <TextView android:id="@+id/q_money_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:textSize="11.5sp" android:maxLines="1" android:text="@string/quick_expense" android:paddingTop="2dp"
+                android:gravity="center" android:padding="2dp">
+                <TextView android:id="@+id/q_money_icon" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                    android:textSize="26sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="12sp" android:autoSizeMaxTextSize="26sp" android:maxLines="1" android:text="💸" android:gravity="center" />
+                <TextView android:id="@+id/q_money_label" android:layout_width="match_parent" android:layout_height="16dp" android:gravity="center"
+                    android:textSize="11.5sp" android:maxLines="1" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="7sp" android:autoSizeMaxTextSize="11.5sp" android:autoSizeStepGranularity="0.5sp" android:text="@string/quick_expense" android:paddingTop="2dp"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
         </FrameLayout>

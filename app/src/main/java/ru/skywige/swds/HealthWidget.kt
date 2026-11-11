@@ -20,6 +20,10 @@ import java.util.Locale
  * Если Health Connect не включён, берёт сводку модуля «Браслет» с сервера (Gadgetbridge и т. п.).
  */
 class HealthWidget : AppWidgetProvider() {
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(ctx, mgr, id)                                           // размер изменился — перерисовать фон и подписи
+    }
+
 
     override fun onUpdate(ctx: Context, mgr: AppWidgetManager, ids: IntArray) {
         for (id in ids) render(ctx, mgr, id)
@@ -99,6 +103,8 @@ class HealthWidget : AppWidgetProvider() {
             })
             val ts = d.optLong("ts")
             rv.setTextViewText(R.id.h_updated, if (ts > 0) SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ts)) else "")
+            val (wDp, _) = WidgetStyle.sizeDp(ctx, id, 250, 120)
+            rv.setViewVisibility(R.id.h_updated, if (wDp < 210) android.view.View.GONE else android.view.View.VISIBLE)
 
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             rv.setOnClickPendingIntent(R.id.h_refresh, PendingIntent.getBroadcast(ctx, 72000 + id,
