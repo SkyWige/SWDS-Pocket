@@ -526,8 +526,11 @@ class RemoteWidget : AppWidgetProvider() {
         private fun render(ctx: Context, mgr: AppWidgetManager, id: Int) {
             val pal = Theme.widgetColors(ctx, null)
             val rv = RemoteViews(ctx.packageName, R.layout.widget_remote)
-            rv.setInt(R.id.bg, "setColorFilter", pal.surface)
-            rv.setInt(R.id.bg, "setImageAlpha", 240)
+            WidgetStyle.applyBg(ctx, rv, pal, id, 250, 90)
+            for (bgId in intArrayOf(R.id.r_pc_bg, R.id.r_phones_bg, R.id.r_share_bg)) {
+                rv.setInt(bgId, "setColorFilter", pal.accent)
+                rv.setInt(bgId, "setImageAlpha", if (pal.dark) 46 else 28)
+            }
             for (v in intArrayOf(R.id.r_pc_icon, R.id.r_phones_icon, R.id.r_share_icon)) rv.setTextColor(v, pal.accent)
             for (v in intArrayOf(R.id.r_pc_label, R.id.r_phones_label, R.id.r_share_label)) rv.setTextColor(v, pal.text)
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

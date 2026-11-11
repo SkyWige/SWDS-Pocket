@@ -54,8 +54,7 @@ class HealthWidget : AppWidgetProvider() {
             val d = runCatching { JSONObject(p.healthToday) }.getOrDefault(JSONObject())
             val pal = Theme.widgetColors(ctx, null)
             val rv = RemoteViews(ctx.packageName, R.layout.widget_health)
-            rv.setInt(R.id.bg, "setColorFilter", pal.surface)
-            rv.setInt(R.id.bg, "setImageAlpha", 245)
+            WidgetStyle.applyBg(ctx, rv, pal, id, 250, 120)
             for (v in listOf(R.id.h_title, R.id.h_steps, R.id.h_l1, R.id.h_l2, R.id.h_l3)) rv.setTextColor(v, pal.text)
             for (v in listOf(R.id.h_updated, R.id.h_refresh, R.id.h_steps_l, R.id.h_l4)) rv.setTextColor(v, pal.muted)
 
@@ -64,12 +63,10 @@ class HealthWidget : AppWidgetProvider() {
             val steps = if (fresh) d.optLong("steps", 0) else 0L
             val goal = d.optInt("steps_goal", p.stepsGoal).coerceAtLeast(1000)
             val done = steps >= goal
-            rv.setProgressBar(R.id.h_ring, 1000, ((steps.toDouble() / goal).coerceIn(0.0, 1.0) * 1000).toInt(), false)
             val ringColor = if (done) 0xFF10B981.toInt() else pal.accent
-            if (Build.VERSION.SDK_INT >= 31) {
-                rv.setColorStateList(R.id.h_ring, "setProgressTintList", ColorStateList.valueOf(ringColor))
-                rv.setColorStateList(R.id.h_ring, "setProgressBackgroundTintList",
-                    ColorStateList.valueOf((pal.muted and 0x00FFFFFF) or 0x33000000))
+            runCatching {
+                rv.setImageViewBitmap(R.id.h_ring, WidgetStyle.ring(ctx, (steps.toFloat() / goal).coerceIn(0f, 1f), ringColor,
+                    WidgetStyle.alpha(pal.muted, 0x38), 92f, 9f, if (done) 0xFF6EE7B7.toInt() else null))
             }
             rv.setTextViewText(R.id.h_steps, if (d.length() == 0) "—" else if (steps >= 10000) "${steps / 1000}.${(steps % 1000) / 100}к" else n(steps))
             rv.setTextViewText(R.id.h_steps_l, if (done) "цель ✓" else "из ${n(goal.toLong())}")

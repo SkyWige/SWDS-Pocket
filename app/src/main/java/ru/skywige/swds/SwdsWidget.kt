@@ -29,6 +29,10 @@ class SwdsWidget : AppWidgetProvider() {
         }.start()
     }
 
+    override fun onAppWidgetOptionsChanged(ctx: Context, mgr: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        render(ctx, id)                                  // фон рисуется под размер виджета
+    }
+
     override fun onDeleted(ctx: Context, ids: IntArray) {
         val p = Prefs(ctx)
         for (id in ids) p.setWidget(id, null)
@@ -95,15 +99,22 @@ class SwdsWidget : AppWidgetProvider() {
             val pal = Theme.widgetColors(ctx, data?.optJSONObject("colors"))
             val rv = RemoteViews(ctx.packageName, R.layout.widget_root)
 
-            rv.setInt(R.id.bg, "setColorFilter", pal.surface)
-            rv.setInt(R.id.bg, "setImageAlpha", 245)
-            val title = when {
-                data != null && data.has("title") -> (data.optString("icon") + " " + data.optString("title")).trim()
+            WidgetStyle.applyBg(ctx, rv, pal, appWidgetId, 250, 200)
+            var icon = data?.optString("icon") ?: ""
+            var title = when {
+                data != null && data.has("title") -> data.optString("title")
                 conf != null -> conf.optString("name", "SWDS")
                 else -> "SWDS"
             }
+            if (icon.isEmpty()) { val (ic, rest) = WidgetService.splitIcon(title); if (ic.isNotEmpty()) { icon = ic; title = rest } }
             rv.setTextViewText(R.id.title, title)
             rv.setTextColor(R.id.title, pal.text)
+            rv.setTextViewText(R.id.chip_icon, icon.ifEmpty { "✦" })
+            rv.setTextColor(R.id.chip_icon, pal.accent)
+            runCatching {
+                rv.setImageViewBitmap(R.id.chip, WidgetStyle.tile(ctx, pal.accent, 30f, 30f, 10f, if (pal.dark) 70 else 44))
+                rv.setImageViewBitmap(R.id.refresh_bg, WidgetStyle.tile(ctx, pal.text, 30f, 30f, 15f, if (pal.dark) 22 else 14, false))
+            }
             rv.setTextColor(R.id.updated, pal.muted)
             rv.setTextColor(R.id.refresh, pal.muted)
             rv.setTextColor(R.id.empty, pal.muted)
@@ -120,23 +131,28 @@ class SwdsWidget : AppWidgetProvider() {
                 else -> ctx.getString(R.string.empty)
             })
 
-            // список строк
+            // список строк или плитки (набор кнопок и быстрых действий)
+            val tiles = WidgetService.wantsTiles(data)
+            val target = if (tiles) R.id.grid else R.id.list
+            rv.setViewVisibility(R.id.list, if (tiles) android.view.View.GONE else android.view.View.VISIBLE)
+            rv.setViewVisibility(R.id.grid, if (tiles) android.view.View.VISIBLE else android.view.View.GONE)
             val svc = Intent(ctx, WidgetService::class.java)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 .putExtra("nonce", fetched)
+                .putExtra("tiles", tiles)
             svc.data = Uri.parse(svc.toUri(Intent.URI_INTENT_SCHEME))
             @Suppress("DEPRECATION")
-            rv.setRemoteAdapter(R.id.list, svc)
-            rv.setEmptyView(R.id.list, R.id.empty)
+            rv.setRemoteAdapter(target, svc)
+            rv.setEmptyView(target, R.id.empty)
 
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
             val tpl = Intent(ctx, RouterActivity::class.java).setAction(RouterActivity.A_WIDGET_ROW)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-            rv.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, appWidgetId, tpl, flags))
+            rv.setPendingIntentTemplate(target, PendingIntent.getActivity(ctx, appWidgetId, tpl, flags))
 
             val refresh = Intent(ctx, SwdsWidget::class.java).setAction(ACTION_REFRESH)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            rv.setOnClickPendingIntent(R.id.refresh, PendingIntent.getBroadcast(ctx, appWidgetId, refresh,
+            rv.setOnClickPendingIntent(R.id.refresh_box, PendingIntent.getBroadcast(ctx, appWidgetId, refresh,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
             val titleIntent = if (conf == null)
@@ -145,11 +161,12 @@ class SwdsWidget : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             else Notifier.openIntent(ctx, data?.optString("open")?.ifEmpty { null } ?: "/", 50000 + appWidgetId)
             rv.setOnClickPendingIntent(R.id.title, titleIntent)
+            rv.setOnClickPendingIntent(R.id.chip, titleIntent)
             rv.setOnClickPendingIntent(R.id.empty, titleIntent)
 
             mgr.updateAppWidget(appWidgetId, rv)
             @Suppress("DEPRECATION")
-            mgr.notifyAppWidgetViewDataChanged(appWidgetId, R.id.list)
+            mgr.notifyAppWidgetViewDataChanged(appWidgetId, target)
         }
     }
 }

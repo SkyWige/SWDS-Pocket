@@ -29,8 +29,8 @@ class ButtonWidget : AppWidgetProvider() {
             val conf = Prefs(ctx).buttonFor(id)
             val pal = Theme.widgetColors(ctx, null)
             val rv = RemoteViews(ctx.packageName, R.layout.widget_button)
-            rv.setInt(R.id.bg, "setColorFilter", pal.surface)
-            rv.setInt(R.id.bg, "setImageAlpha", 240)
+            WidgetStyle.applyBg(ctx, rv, pal, id, 90, 90)
+            runCatching { rv.setImageViewBitmap(R.id.chip, WidgetStyle.tile(ctx, pal.accent, 46f, 46f, 16f, if (pal.dark) 70 else 42)) }
             rv.setTextViewText(R.id.icon, conf?.optString("icon")?.ifEmpty { null } ?: "⚡")
             rv.setTextViewText(R.id.label, conf?.optString("title")?.ifEmpty { null } ?: "Настроить")
             rv.setTextColor(R.id.label, pal.text)
