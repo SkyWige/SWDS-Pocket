@@ -22,8 +22,11 @@ class QuickWidget : AppWidgetProvider() {
         private fun render(ctx: Context, mgr: AppWidgetManager, id: Int) {
             val pal = Theme.widgetColors(ctx, null)
             val rv = RemoteViews(ctx.packageName, R.layout.widget_quick)
-            rv.setInt(R.id.bg, "setColorFilter", pal.surface)
-            rv.setInt(R.id.bg, "setImageAlpha", 240)
+            WidgetStyle.applyBg(ctx, rv, pal, id, 180, 90)
+            for (bgId in intArrayOf(R.id.q_note_bg, R.id.q_money_bg)) {
+                rv.setInt(bgId, "setColorFilter", pal.accent)
+                rv.setInt(bgId, "setImageAlpha", if (pal.dark) 46 else 28)
+            }
             rv.setTextColor(R.id.q_note_icon, pal.accent)
             rv.setTextColor(R.id.q_note_label, pal.text)
             rv.setTextColor(R.id.q_money_icon, pal.accent)

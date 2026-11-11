@@ -51,6 +51,16 @@ body { padding: 0 0 40px; }
 .r .i { width: 22px; text-align: center; flex: none; } .r .t { flex: 1; min-width: 0; } .r .t small { display: block; color: var(--muted); font-size: 12.5px; }
 .r .rt { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
 .mt { font-size: 30px; font-weight: 800; }
+/* плитки быстрого доступа */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 8px; margin: 2px 0 12px; }
+.tile { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 92px; padding: 12px; border-radius: 18px;
+  background: color-mix(in srgb, var(--c) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
+  color: var(--text); text-align: left; font: inherit; overflow: hidden; }
+.tile::after { content: ""; position: absolute; right: -18px; top: -18px; width: 70px; height: 70px; border-radius: 50%; background: color-mix(in srgb, var(--c) 22%, transparent); }
+.tile .e { font-size: 24px; position: relative; z-index: 1; }
+.tile b { font-size: 22px; font-weight: 800; position: relative; z-index: 1; line-height: 1.1; }
+.tile span { font-size: 12px; color: var(--muted); position: relative; z-index: 1; }
+.tile:active { transform: scale(.97); }
 </style></head>
 <body>
 <div class="hd">
@@ -182,9 +192,24 @@ function healthCard() {
     <div style="color:var(--muted);font-size:13.5px;margin-top:4px">${[sleep ? "😴 " + hm(sleep) : "", hr ? "❤️ " + hr : "", (h.active_kcal || br.kcal) ? "🔥 " + nf(h.active_kcal || br.kcal) + " ккал" : ""].filter(Boolean).join(" · ")}</div>
     ${h.insight ? `<div style="font-size:13px;margin-top:4px">${esc(h.insight)}</div>` : ""}</div></div>`;
 }
+function tilesHtml() {
+  const open = V.tasks.filter(t => t.status !== "done");
+  const today = open.filter(t => t.due_date && t.due_date <= TODAY).length;
+  const hab = V.habits.filter(h => !h.checked_today).length;
+  const ev = (V.agenda || V.events || []).filter(e => String(e.date || e.start || "").slice(0, 10) === TODAY).length;
+  const T = [["tasks", "✅", open.length, today ? `на сегодня ${today}` : "задач открыто", "#10b981"],
+    ["notes", "📝", V.notes.length, "заметок", "#f59e0b"],
+    ["agenda", "📅", ev, "событий сегодня", "#3b82f6"],
+    ["habits", "🔥", hab, hab ? "привычек осталось" : "все отмечены", "#ec4899"],
+    ["health", "❤️", "", "здоровье", "#ef4444"]];
+  return `<div class="tiles">${T.map(([t, e, n, l, c]) => `<button class="tile" style="--c:${c}" onclick="go('${t}')"><span class="e">${e}</span><div><b>${n === "" ? "" : esc(n)}</b><span>${esc(l)}</span></div></button>`).join("")}
+    <button class="tile" style="--c:#8b5cf6" onclick="window.SWDSPocket && SWDSPocket.openLibrary()"><span class="e">📚</span><div><b></b><span>книги</span></div></button>
+    <button class="tile" style="--c:#06b6d4" onclick="window.SWDSPocket && SWDSPocket.openPlaces && SWDSPocket.openPlaces()"><span class="e">📍</span><div><b></b><span>мои места</span></div></button></div>`;
+}
+function go(t) { const b = document.querySelector(`#tabs [data-t="${t}"]`); if (b) b.click(); }
 function renderToday() {
   const rows = V.today || [];
-  $("today").innerHTML = healthCard() + (rows.length ? `<div class="card">${rowsHtml(rows)}</div>` : "") +
+  $("today").innerHTML = tilesHtml() + healthCard() + (rows.length ? `<div class="card">${rowsHtml(rows)}</div>` : "") +
     (!rows.length && !RAW.tasks ? `<div class="empty">Снимка данных пока нет. Он скачается сам при следующей связи с SWDS.</div>` : "") +
     `<p style="color:var(--muted);font-size:13px;text-align:center">Задачи, заметки и привычки можно отмечать и править прямо здесь — изменения уйдут на сервер, когда появится связь.</p>`;
 }

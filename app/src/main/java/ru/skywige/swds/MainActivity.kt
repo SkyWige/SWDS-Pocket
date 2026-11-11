@@ -93,7 +93,7 @@ class MainActivity : Activity() {
         frame.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
         root.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        root.addView(nav, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)))
+        root.addView(nav, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(64)))
         setContentView(root)
         buildNav()
         applyTheme()
@@ -311,8 +311,11 @@ class MainActivity : Activity() {
         nav.removeAllViews(); tabs.clear()
         for ((icon, label, path) in TABS) {
             val t = TextView(this).apply {
-                text = "$icon\n$label"; gravity = Gravity.CENTER; textSize = 11f
-                setLineSpacing(dp(2).toFloat(), 1f)
+                text = android.text.SpannableString("$icon\n$label").apply {
+                    setSpan(android.text.style.RelativeSizeSpan(1.55f), 0, icon.length, 0)
+                }
+                gravity = Gravity.CENTER; textSize = 11f
+                setLineSpacing(dp(1).toFloat(), 1f)
                 setOnClickListener {
                     if (path.isEmpty()) more(this) else {
                         val cur = web.url ?: ""
@@ -341,80 +344,125 @@ class MainActivity : Activity() {
             val on = t == best
             t.setTextColor(if (on) pal.accent else pal.muted)
             t.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
+            t.background = if (on) android.graphics.drawable.InsetDrawable(GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor((pal.accent and 0x00FFFFFF) or (if (pal.dark) 0x2E000000 else 0x1F000000))
+            }, dp(6), dp(5), dp(6), dp(5)) else null
         }
     }
 
-    /** «Ещё»: всё приложение одним списком по разделам, снизу экрана. */
+    /** «Ещё»: всё приложение плитками по разделам, в нижней шторке. */
     private fun more(@Suppress("UNUSED_PARAMETER") anchor: View) {
         val pal = Theme.palette(this)
+        data class T(val icon: String, val title: String, val target: String, val color: Int)
+        val blue = 0xFF3B82F6.toInt(); val violet = 0xFF8B5CF6.toInt(); val green = 0xFF10B981.toInt()
+        val amber = 0xFFF59E0B.toInt(); val pink = 0xFFEC4899.toInt(); val slate = 0xFF64748B.toInt(); val cyan = 0xFF06B6D4.toInt()
         val groups = listOf(
             "Телефон и компьютер" to listOf(
-                "🎛  Пульт: мышь, клавиатура, экран ПК" to "/modules/mobile/remote",
-                "🖥  Устройства: экран ПК и телефонов" to "/modules/remote_control/window",
-                "💻  Виртуальные машины" to "/modules/virtualization/pocket",
-                "📤  Отправить файл на ПК" to "#send",
-                "🔄  Синхронизация папок" to "#sync",
-                "📲  Лента уведомлений телефона" to "/modules/mobile/window#feed",
-                "📱  Телефон и общая папка" to "/modules/mobile/window"
+                T("🎛", "Пульт ПК", "/modules/mobile/remote", blue),
+                T("🖥", "Устройства", "/modules/remote_control/window", blue),
+                T("💻", "Виртуальные машины", "/modules/virtualization/pocket", violet),
+                T("📤", "Отправить на ПК", "#send", cyan),
+                T("🔄", "Синхронизация", "#sync", cyan),
+                T("📲", "Уведомления телефона", "/modules/mobile/window#feed", slate),
+                T("📱", "Общая папка", "/modules/mobile/window", slate)
             ),
             "Личное" to listOf(
-                "🔐  Пароли: поиск, отпечаток, автозаполнение" to "#passwords",
-                "🎮  Игры: библиотека SWDS" to "/modules/games/window",
-                "🕹  Игры телефона и время в них" to "#games",
-                "📍  Мои места (работает без связи)" to "#places"
+                T("🔐", "Пароли", "#passwords", amber),
+                T("🎮", "Игры SWDS", "/modules/games/window", violet),
+                T("🕹", "Игры телефона", "#games", violet),
+                T("📍", "Мои места", "#places", green),
+                T("▶️", "Ролики и каналы", "/modules/media_manager/window#/tube", pink),
+                T("✉️", "Почта", "/modules/mail/window", blue),
+                T("🛒", "Покупки", "/modules/shopping/window", green),
+                T("🏠", "Умный дом", "/modules/smart_home/window", amber)
             ),
             "Здоровье и дела" to listOf(
-                "⌚  Браслет: шаги, сон, пульс" to "/modules/bracelet/window",
-                "✅  Задачи" to "/modules/tasks/window",
-                "📝  Заметки" to "/modules/notes_manager/window",
-                "📍  Геолокация" to "/modules/geolocation/window",
-                "🛣  Карта передвижений" to "/modules/travels/window",
-                "📚  Библиотека и читалка (без связи)" to "#library",
-                "📴  Без связи: данные на телефоне" to "#offline"
+                T("⌚", "Браслет", "/modules/bracelet/window", pink),
+                T("✅", "Задачи", "/modules/tasks/window", green),
+                T("📝", "Заметки", "/modules/notes_manager/window", amber),
+                T("📅", "Календарь", "/modules/calendar/window", blue),
+                T("💳", "Кошелёк", "/modules/wallet/window", green),
+                T("🌦", "Погода", "/modules/weather/window", cyan),
+                T("🗺", "Геолокация", "/modules/geolocation/window", green),
+                T("🛣", "Передвижения", "/modules/travels/window", violet),
+                T("📚", "Библиотека", "#library", amber),
+                T("📴", "Без связи", "#offline", slate)
             ),
             "SWDS" to listOf(
-                "🎙  Ассистент" to "#assist",
-                "🧩  Все модули" to "/ui/modules",
-                "🔔  Уведомления" to "/modules/notifications/window",
-                "⚡  Команды" to "/ui/commands",
-                "🤖  Автоматизации" to "/ui/scheduler",
-                "🧱  Виджеты" to "/modules/desktop_widgets/window",
-                "🎨  Темы" to "/modules/theme_manager/window",
-                "💽  Хранилище: папки и зеркала" to "/ui/storage"
+                T("🎙", "Ассистент", "#assist", violet),
+                T("🧩", "Все модули", "/ui/modules", blue),
+                T("🔔", "Уведомления", "/modules/notifications/window", amber),
+                T("⚡", "Команды", "/ui/commands", amber),
+                T("🤖", "Автоматизации", "/ui/scheduler", cyan),
+                T("🧱", "Виджеты", "/modules/desktop_widgets/window", pink),
+                T("🎨", "Темы", "/modules/theme_manager/window", pink),
+                T("💽", "Хранилище", "/ui/storage", slate)
             ),
             "Приложение" to listOf(
-                "⚙  Настройки" to "#settings",
-                "❤️  Health Connect" to "#health",
-                "⟳  Обновить страницу" to "#reload"
+                T("⚙", "Настройки", "#settings", slate),
+                T("❤️", "Health Connect", "#health", pink),
+                T("⟳", "Обновить", "#reload", slate)
             )
         )
         val dlg = android.app.Dialog(this)
+        val cols = if (resources.configuration.screenWidthDp >= 600) 6 else 4
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(12), dp(10), dp(20))
+            setPadding(dp(14), dp(8), dp(14), dp(24))
         }
+        // ручка шторки
+        list.addView(View(this).apply {
+            background = GradientDrawable().apply { setColor((pal.muted and 0x00FFFFFF) or 0x55000000); cornerRadius = dp(3).toFloat() }
+        }, LinearLayout.LayoutParams(dp(40), dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6) })
+        fun mix(a: Int, b: Int, t: Float): Int = Color.rgb(
+            (Color.red(a) + (Color.red(b) - Color.red(a)) * t).toInt(),
+            (Color.green(a) + (Color.green(b) - Color.green(a)) * t).toInt(),
+            (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t).toInt())
         for ((title, items) in groups) {
             list.addView(TextView(this).apply {
-                text = title.uppercase(); textSize = 11f; letterSpacing = 0.07f
+                text = title.uppercase(); textSize = 11f; letterSpacing = 0.08f
                 setTextColor(pal.muted); setTypeface(null, Typeface.BOLD)
-                setPadding(dp(12), dp(12), dp(12), dp(6))
+                setPadding(dp(6), dp(14), dp(6), dp(8))
             })
-            for ((label, target) in items) {
-                list.addView(TextView(this).apply {
-                    text = label; textSize = 16f; setTextColor(pal.text); gravity = Gravity.CENTER_VERTICAL
-                    minHeight = dp(48); setPadding(dp(12), 0, dp(12), 0)
-                    val tv = android.util.TypedValue()
-                    theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
-                    setBackgroundResource(tv.resourceId)
-                    setOnClickListener { dlg.dismiss(); openTarget(target) }
+            val grid = android.widget.GridLayout(this).apply { columnCount = cols; useDefaultMargins = false }
+            for (t in items) {
+                val tile = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                    setPadding(dp(4), dp(10), dp(4), dp(8))
+                    background = android.graphics.drawable.RippleDrawable(
+                        android.content.res.ColorStateList.valueOf((t.color and 0x00FFFFFF) or 0x44000000),
+                        GradientDrawable().apply {
+                            cornerRadius = dp(18).toFloat()
+                            setColor(mix(pal.surface, t.color, if (pal.dark) 0.16f else 0.09f))
+                            setStroke(1, (t.color and 0x00FFFFFF) or (if (pal.dark) 0x30000000 else 0x22000000))
+                        }, null)
+                    setOnClickListener { dlg.dismiss(); openTarget(t.target) }
+                    contentDescription = t.title
+                }
+                tile.addView(TextView(this).apply {
+                    text = t.icon; textSize = 25f; gravity = Gravity.CENTER
                 })
+                tile.addView(TextView(this).apply {
+                    text = t.title; textSize = 11.5f; gravity = Gravity.CENTER; setTextColor(pal.text)
+                    maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(0, dp(4), 0, 0)
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                })
+                val lp = android.widget.GridLayout.LayoutParams(
+                    android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED),
+                    android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)).apply {
+                    width = 0; height = dp(86); setMargins(dp(4), dp(4), dp(4), dp(4))
+                }
+                grid.addView(tile, lp)
             }
+            list.addView(grid, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         val sheet = android.widget.ScrollView(this).apply {
             addView(list)
             background = GradientDrawable().apply {
                 setColor(pal.surface)
-                val r = dp(20).toFloat()
+                val r = dp(26).toFloat()
                 cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
             }
         }
@@ -423,7 +471,8 @@ class MainActivity : Activity() {
         dlg.window?.apply {
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.BOTTOM)
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.82).toInt())
+            setWindowAnimations(android.R.style.Animation_InputMethod)
         }
         dlg.show()
     }
