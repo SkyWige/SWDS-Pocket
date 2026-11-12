@@ -74,5 +74,5 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cameraX")
     implementation("androidx.camera:camera-lifecycle:$cameraX")
     implementation("androidx.camera:camera-view:$cameraX")
-    implementation("com.google.guava:listenablefuture:1.0")
+    implementation("com.google.guava:guava:33.3.1-android")
 }
