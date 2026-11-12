@@ -96,6 +96,22 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("pass_clip_sec", 30)
         set(v) = sp.edit().putInt("pass_clip_sec", v).apply()
 
+    // ── экранное время телефона → «Куда ушло время» ──
+    var screenTimeEnabled: Boolean
+        get() = sp.getBoolean("screen_time_enabled", false)
+        set(v) = sp.edit().putBoolean("screen_time_enabled", v).apply()
+
+    // ── режим камеры (старый телефон как камера для «Камер» SWDS) ──
+    val cameraKey: String
+        get() = sp.getString("camera_key", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+            .also { sp.edit().putString("camera_key", it).apply() }
+    var cameraName: String
+        get() = sp.getString("camera_name", null) ?: deviceName
+        set(v) = sp.edit().putString("camera_name", v).apply()
+    var cameraBack: Boolean
+        get() = sp.getBoolean("camera_back", true)
+        set(v) = sp.edit().putBoolean("camera_back", v).apply()
+
     // ── игры телефона → модуль «Игры» ──
     var gamesEnabled: Boolean
         get() = sp.getBoolean("games_enabled", false)
@@ -286,7 +302,7 @@ class Prefs(ctx: Context) {
         put("track_routes", trackRoutes); put("track_interval", trackInterval)
         put("track_mode", trackMode); put("places_interval", placesInterval)
         put("pass_paired", passPair != null); put("pass_bio", passBio.isNotEmpty()); put("pass_clip_sec", passClipSec)
-        put("games_enabled", gamesEnabled)
+        put("games_enabled", gamesEnabled); put("screen_time_enabled", screenTimeEnabled); put("camera_name", cameraName)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)
         put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))

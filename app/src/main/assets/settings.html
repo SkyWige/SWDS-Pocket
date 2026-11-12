@@ -131,11 +131,15 @@
       <select id="rplaces-int" style="max-width:150px"><option value="2">раз в 2 мин</option><option value="5">раз в 5 мин</option><option value="10">раз в 10 мин</option><option value="15">раз в 15 мин</option><option value="30">раз в 30 мин</option><option value="60">раз в час</option><option value="120">раз в 2 часа</option></select></div>
     <div class="row trk" id="trk-row"><div class="t"><b>Точка маршрута</b><small>Чаще — подробнее трек, реже — меньше расход заряда</small></div>
       <select id="rtrack-int" style="max-width:150px"><option value="10">раз в 10 с</option><option value="20">раз в 20 с</option><option value="30">раз в 30 с</option><option value="60">раз в минуту</option><option value="120">раз в 2 мин</option></select></div>
+    <div class="row"><div class="t"><b>⏱ Экранное время</b><small id="st-st">Сколько минут в каких приложениях → «Куда ушло время» на компьютере. Нужен «Доступ к истории использования».</small></div>
+      <label class="sw"><input type="checkbox" id="rscreen"><span></span></label></div>
     <div class="btns"><button class="btn sm" id="bgloc">Доступ «всегда» (для фона)</button><button class="btn sm" id="rep">Отправить сейчас</button><button class="btn sm" id="open-places">📍 Мои места</button></div>
   </div>
   <div class="card" data-sec="data">
     <h2>Личное</h2>
     <div class="row"><div class="t"><b>🔐 Пароли</b><small>Поиск по хранилищу SWDS, отпечаток, автозаполнение в приложениях</small></div><button class="btn sm" id="open-pass">Открыть</button></div>
+    <div class="row"><div class="t"><b>📷 Режим камеры</b><small>Старый телефон → камера для «Камер» SWDS: живое видео, движение, охрана. Поставьте на зарядку и нажмите «Начать».</small></div><button class="btn sm pri" id="open-cam">Начать</button></div>
+    <div class="row hide" id="cam-name-row"><div class="t"><b>Название камеры</b></div><input type="text" id="cam-name" style="max-width:170px" placeholder="Прихожая"></div>
     <div class="row"><div class="t"><b>🕹 Игры телефона</b><small id="games-st">Список игр и время в них → модуль «Игры»</small></div><button class="btn sm" id="open-games">Открыть</button></div>
   </div>
 
@@ -202,6 +206,10 @@ function render() {
   $("dname").value = st.device_name || "";
   $("push").checked = !!st.persistent_push;
   $("rdev").checked = !!st.report_device;
+  $("rscreen").checked = !!st.screen_time_enabled;
+  $("st-st").innerHTML = st.screen_time_enabled ? ((st.perms || {}).usage ? '<span class="pill ok">включено</span> — раз в полчаса уходит на сервер' : '<span class="pill warn">нет доступа к истории использования</span> — нажмите переключатель ещё раз')
+    : "Сколько минут в каких приложениях → «Куда ушло время» на компьютере. Нужен «Доступ к истории использования».";
+  $("cam-name").value = st.camera_name || st.device_name || ""; $("cam-name-row").classList.remove("hide");
   $("rloc").checked = !!st.report_location;
   $("rtrack").checked = !!st.track_routes;
   $("rtrack-int").value = String(st.track_interval || 20);
@@ -310,6 +318,13 @@ $("save-srv").onclick = async () => {
 };
 $("push").onchange = () => P.call("save", { persistent_push: $("push").checked });
 $("rdev").onchange = () => P.call("save", { report_device: $("rdev").checked });
+$("rscreen").onchange = async () => {
+  const on = $("rscreen").checked;
+  if (on && !((st.perms || {}).usage)) { toast("Найдите SWDS в списке и разрешите доступ, затем вернитесь"); P.call("usage_access"); }
+  await P.call("save", { screen_time_enabled: on }); render();
+};
+$("open-cam").onclick = () => P.call("open_camera");
+$("cam-name").onchange = () => P.call("save", { camera_name: $("cam-name").value });
 $("rfiles").onchange = () => P.call("save", { receive_files: $("rfiles").checked });
 $("rloc").onchange = async () => {
   if ($("rloc").checked) {

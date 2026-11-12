@@ -78,6 +78,7 @@ object Events {
                     }
                 }
                 "ring" -> Ring.start(app, e.optString("text", "Телефон ищут через SWDS"))
+                "camera_wake" -> CameraActivity.wakeUp()
                 "outbox" -> if (p.receiveFiles) SyncWorker.now(app, "outbox")
                 "widgets" -> SwdsWidget.refreshAll(app)
                 "theme" -> {
