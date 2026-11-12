@@ -194,6 +194,8 @@ object Bridge {
             .put("background_location", Build.VERSION.SDK_INT < 29 || g(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
             .put("storage", Build.VERSION.SDK_INT >= 29 || g(Manifest.permission.WRITE_EXTERNAL_STORAGE))
             .put("battery", pm.isIgnoringBatteryOptimizations(ctx.packageName))
+            .put("usage", PhoneGames.hasUsageAccess(ctx))
+            .put("camera", g(Manifest.permission.CAMERA))
             .put("sdk", Build.VERSION.SDK_INT)
     }
 
@@ -314,6 +316,11 @@ class SettingsActivity : LocalPageActivity() {
                     p.gamesEnabled = a.optBoolean("games_enabled")
                     if (p.gamesEnabled) SyncWorker.now(this, "games", manual = true)
                 }
+                if (a.has("screen_time_enabled")) {
+                    p.screenTimeEnabled = a.optBoolean("screen_time_enabled")
+                    if (p.screenTimeEnabled) SyncWorker.now(this, "screen", manual = true)
+                }
+                if (a.has("camera_name")) p.cameraName = a.optString("camera_name").trim().ifEmpty { p.deviceName }
                 if (a.has("receive_files")) p.receiveFiles = a.optBoolean("receive_files")
                 if (a.has("quick_dest")) p.quickDest = a.optString("quick_dest")
                 if (a.has("servers")) {
@@ -374,6 +381,15 @@ class SettingsActivity : LocalPageActivity() {
             }
             "open_places" -> { main.post { startActivity(Intent(this, PlacesActivity::class.java)) }; ok() }
             "open_games" -> { main.post { startActivity(Intent(this, GamesActivity::class.java)) }; ok() }
+            "open_camera" -> { main.post { startActivity(CameraActivity.intent(this)) }; ok() }
+            "screen_sync" -> { SyncWorker.now(this, "screen", manual = true); ok() }
+            "usage_access" -> {
+                main.post {
+                    if (runCatching { startActivity(Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)) }.isFailure)
+                        runCatching { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+                }
+                ok()
+            }
             "open_passwords" -> { main.post { startActivity(Intent(this, PassActivity::class.java)) }; ok() }
             "open_assist" -> { main.post { startActivity(Intent(this, AssistActivity::class.java)) }; ok() }
             "sync_now" -> { SyncWorker.now(this, a.optString("what", "all"), manual = true); ok() }

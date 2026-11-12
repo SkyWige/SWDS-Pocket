@@ -31,4 +31,5 @@
     <string name="pass_autofill">Пароли SWDS</string>
     <string name="places">Мои места</string>
     <string name="phone_games">Игры телефона</string>
+    <string name="camera_label">SWDS · Камера</string>
 </resources>
