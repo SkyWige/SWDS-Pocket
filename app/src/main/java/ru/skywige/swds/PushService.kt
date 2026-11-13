@@ -49,7 +49,10 @@ class PushService : Service() {
         else startForeground(Notifier.ID_SERVICE, n)
         val cm = getSystemService(ConnectivityManager::class.java)
         netCb = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) { kick(reconnect = true) }
+            override fun onAvailable(network: Network) {
+                kick(reconnect = true)
+                if (Prefs(this@PushService).subEnabled) SubKick.soon(this@PushService)   // связь появилась — слить офлайн-правки
+            }
         }
         runCatching { cm.registerDefaultNetworkCallback(netCb!!) }
         val f = IntentFilter().apply {

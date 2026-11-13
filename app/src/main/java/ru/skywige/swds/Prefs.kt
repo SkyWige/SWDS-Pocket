@@ -96,6 +96,41 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("pass_clip_sec", 30)
         set(v) = sp.edit().putInt("pass_clip_sec", v).apply()
 
+    // ── саб-сервер: офлайн-работа и синхронизация с основным SWDS ──
+    var subEnabled: Boolean
+        get() = sp.getBoolean("sub_enabled", false)
+        set(v) = sp.edit().putBoolean("sub_enabled", v).apply()
+    val subNodeId: String
+        get() = sp.getString("sub_node_id", null) ?: ("ph-" + java.util.UUID.randomUUID().toString().replace("-", "").take(10))
+            .also { sp.edit().putString("sub_node_id", it).apply() }
+    var subLevel: Int
+        get() = sp.getInt("sub_level", 2)
+        set(v) = sp.edit().putInt("sub_level", v.coerceIn(1, 9)).apply()
+    var subWindowDays: Int
+        get() = sp.getInt("sub_window", 30)
+        set(v) = sp.edit().putInt("sub_window", v.coerceIn(1, 3650)).apply()
+    var subDatasets: List<String>
+        get() = (sp.getString("sub_datasets", null) ?: "tasks,shopping,calendar,notes,wallet").split(",").filter { it.isNotBlank() }
+        set(v) = sp.edit().putString("sub_datasets", v.joinToString(",")).apply()
+    var subLan: Boolean                       // локальный сервер доступен другим устройствам в сети (по токену)
+        get() = sp.getBoolean("sub_lan", false)
+        set(v) = sp.edit().putBoolean("sub_lan", v).apply()
+    var subPort: Int
+        get() = sp.getInt("sub_port", 8766)
+        set(v) = sp.edit().putInt("sub_port", v.coerceIn(1024, 65000)).apply()
+    val subToken: String
+        get() = sp.getString("sub_token", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").take(20)
+            .also { sp.edit().putString("sub_token", it).apply() }
+    var mediaAutoCache: Boolean               // сыгранная по сети музыка сама сохраняется на телефон
+        get() = sp.getBoolean("media_auto_cache", true)
+        set(v) = sp.edit().putBoolean("media_auto_cache", v).apply()
+    var mediaCacheMb: Int
+        get() = sp.getInt("media_cache_mb", 2048)
+        set(v) = sp.edit().putInt("media_cache_mb", v.coerceIn(100, 100_000)).apply()
+    var cameraLens: String                    // back | front | both
+        get() = sp.getString("camera_lens", null) ?: (if (cameraBack) "back" else "front")
+        set(v) = sp.edit().putString("camera_lens", v).apply()
+
     // ── экранное время телефона → «Куда ушло время» ──
     var screenTimeEnabled: Boolean
         get() = sp.getBoolean("screen_time_enabled", false)
@@ -303,6 +338,9 @@ class Prefs(ctx: Context) {
         put("track_mode", trackMode); put("places_interval", placesInterval)
         put("pass_paired", passPair != null); put("pass_bio", passBio.isNotEmpty()); put("pass_clip_sec", passClipSec)
         put("games_enabled", gamesEnabled); put("screen_time_enabled", screenTimeEnabled); put("camera_name", cameraName)
+        put("sub_enabled", subEnabled); put("sub_level", subLevel); put("sub_window", subWindowDays); put("sub_datasets", JSONArray(subDatasets))
+        put("sub_lan", subLan); put("sub_port", subPort); put("sub_token", subToken); put("sub_node_id", subNodeId)
+        put("media_auto_cache", mediaAutoCache); put("media_cache_mb", mediaCacheMb); put("camera_lens", cameraLens)
         put("receive_files", receiveFiles); put("sync_rules", syncRules); put("tile_command", tileCommand ?: JSONObject.NULL)
         put("theme", theme); put("version", BuildConfig.VERSION_NAME)
         put("feed_enabled", feedEnabled); put("feed_mode", feedMode); put("feed_apps", JSONArray(feedApps))

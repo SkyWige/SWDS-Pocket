@@ -78,6 +78,10 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
                 if (manual) Events.toast(ctx, if (r.optBoolean("ok")) "🎮 Игр: ${r.optInt("games")}, новых сеансов: ${r.optInt("sessions_added")}"
                     else "⚠ " + r.optString("error"))
             }
+            if (what in setOf("all", "sub") && p.subEnabled) step("sub") {
+                val r = SubSync.sync(ctx)
+                if (inputData.getBoolean("manual", false)) Events.toast(ctx, if (r.optBoolean("ok")) "🔄 " + r.optString("message") else "⚠ " + r.optString("error"))
+            }
             if (what in setOf("all", "screen") && (p.screenTimeEnabled || what == "screen")) step("screen") {
                 val manual = inputData.getBoolean("manual", false)
                 val r = ScreenTime.sync(ctx)

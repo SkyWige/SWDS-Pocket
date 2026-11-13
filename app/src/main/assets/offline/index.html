@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SWDS — офлайн</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">S</span><div><b id="node-name">SWDS на телефоне</b><small id="sync-line">…</small></div></div>
+  <button class="icon" id="btn-sync" title="Синхронизировать">⟳</button>
+</header>
+<nav class="tabs" id="tabs"></nav>
+<main id="main"></main>
+<button class="fab" id="fab">＋</button>
+<div class="sheet-wrap" id="sheet"><div class="sheet"><h3 id="sheet-h"></h3><div id="sheet-body"></div>
+  <div class="row end"><button class="btn ghost danger" id="sheet-del">Удалить</button><span class="sp"></span><button class="btn ghost" id="sheet-cancel">Отмена</button><button class="btn pri" id="sheet-save">Сохранить</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -151,6 +151,12 @@ class MainActivity : Activity() {
                 runCatching { Health.pullServerSummary(app) }
             }
             runCatching { OfflineData.maybeFetch(app, 10 * 60_000L) }
+            val p2 = Prefs(app)
+            if (p2.subEnabled) {                                    // саб-сервер: подтянуть свежее / отправить сделанное без сети
+                LocalServer.start(app)
+                val last = LocalStore.get(app).meta("last_sync")?.toLongOrNull() ?: 0
+                if (System.currentTimeMillis() / 1000 - last > 300) runCatching { SubSync.sync(app) }
+            }
         }.start()
         PushService.start(this)
         syncFoldersIfStale()
@@ -519,9 +525,14 @@ class MainActivity : Activity() {
 
     // ───────── WebView ─────────
     inner class Client : WebViewClient() {
+        // музыка и видео, скачанные на телефон, играют из памяти телефона (без сети и без шумов недогруженного потока)
+        override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): android.webkit.WebResourceResponse? =
+            runCatching { MediaOffline.intercept(this@MainActivity, req) }.getOrNull() ?: super.shouldInterceptRequest(view, req)
+
         override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean {
             val url = req.url.toString()
             if (url.startsWith("swds://")) { onNewIntent(Intent(Intent.ACTION_VIEW, req.url)); return true }
+            if (url.startsWith("http://127.0.0.1:") || url.startsWith("http://localhost:")) return false     // саб-сервер на телефоне
             if (isOurs(url)) {
                 val path = req.url.path ?: ""
                 // книга уже скачана в телефон — открываем свою читалку: работает без связи, громкость листает
@@ -574,7 +585,17 @@ class MainActivity : Activity() {
     }
 
     /** Экран «без связи» с данными на телефоне — можно открыть и при живой связи из меню «Ещё». */
+    /** Саб-сервер включён — офлайн-режим это полноценное приложение на телефоне с данными и своими модулями. */
+    private fun subOffline(): Boolean {
+        if (!Prefs(this).subEnabled) return false
+        LocalServer.start(this)
+        loggedIn = false
+        web.loadUrl(LocalServer.url(this) + "/app/index.html")
+        return true
+    }
+
     fun showOffline() {
+        if (subOffline()) return
         loggedIn = false
         web.loadUrl("file:///android_asset/offline.html#manual")
         Thread { runCatching { OfflineData.maybeFetch(applicationContext, 60_000L) }; main.post { web.evaluateJavascript("window.onBundle && onBundle()", null) } }.start()
@@ -584,12 +605,12 @@ class MainActivity : Activity() {
         if (System.currentTimeMillis() - lastError < 1500) return
         lastError = System.currentTimeMillis()
         loggedIn = false
-        web.loadUrl("file:///android_asset/offline.html#" + Uri.encode(reason))
+        if (!subOffline()) web.loadUrl("file:///android_asset/offline.html#" + Uri.encode(reason))
         // в фоне: перебрать адреса сервера (дом ↔ интернет) и вернуться, когда найдётся рабочий
         Thread {
             for (i in 0 until 3) {
                 if (runCatching { Bridge.hello(this) }.isSuccess) {
-                    main.post { if ((web.url ?: "").startsWith("file:")) open("/") }
+                    main.post { val u = web.url ?: ""; if (u.startsWith("file:") || u.startsWith("http://127.0.0.1:")) open("/") }
                     return@Thread
                 }
                 Thread.sleep(4000)
@@ -712,6 +733,12 @@ class MainActivity : Activity() {
     /** window.SWDSPocket — для страниц SWDS и offline.html. */
     inner class PageBridge {
         @JavascriptInterface fun isApp(): Boolean = true
+        @JavascriptInterface fun mediaSave(json: String) = MediaOffline.save(this@MainActivity, json)
+        @JavascriptInterface fun mediaAutoSave(json: String) { if (Prefs(this@MainActivity).mediaAutoCache) MediaOffline.save(this@MainActivity, json, auto = true) }
+        @JavascriptInterface fun mediaCached(): String = MediaOffline.cachedIds(this@MainActivity)
+        @JavascriptInterface fun mediaRemove(id: Long) = MediaOffline.remove(this@MainActivity, id)
+        @JavascriptInterface fun openOffline() = main.post { showOffline() }
+        @JavascriptInterface fun openOnline() = main.post { open("/") }
         @JavascriptInterface fun version(): String = BuildConfig.VERSION_NAME
         @JavascriptInterface fun openSettings() = main.post { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         @JavascriptInterface fun sendFiles() = main.post {

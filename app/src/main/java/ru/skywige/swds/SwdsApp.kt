@@ -10,5 +10,6 @@ class SwdsApp : Application() {
         if (Prefs(this).paired) {
             runCatching { SyncWorker.schedule(this) }
         }
+        if (Prefs(this).subEnabled) runCatching { LocalServer.start(this) }      // саб-сервер: офлайн-приложение на 127.0.0.1
     }
 }
