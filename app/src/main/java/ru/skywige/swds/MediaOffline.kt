@@ -37,7 +37,8 @@ object MediaOffline {
             val o = arr.optJSONObject(i) ?: continue
             val id = o.optLong("id")
             if (id <= 0 || LocalStore.get(app).mediaPath(id)?.let { File(it).isFile } == true) continue
-            synchronized(queued) { if (!queued.add(id)) continue }
+            val fresh = synchronized(queued) { queued.add(id) }
+            if (!fresh) continue
             dl.execute { runCatching { fetch(app, o, auto) }; synchronized(queued) { queued.remove(id) } }
         }
     }
