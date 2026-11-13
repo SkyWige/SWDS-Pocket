@@ -321,6 +321,16 @@ class SettingsActivity : LocalPageActivity() {
                     if (p.screenTimeEnabled) SyncWorker.now(this, "screen", manual = true)
                 }
                 if (a.has("camera_name")) p.cameraName = a.optString("camera_name").trim().ifEmpty { p.deviceName }
+                if (a.has("sub_enabled")) {
+                    p.subEnabled = a.optBoolean("sub_enabled")
+                    if (p.subEnabled) { LocalServer.start(this); SyncWorker.now(this, "sub", manual = true) } else LocalServer.stop()
+                }
+                if (a.has("sub_level")) p.subLevel = a.optInt("sub_level", 2)
+                if (a.has("sub_window")) p.subWindowDays = a.optInt("sub_window", 30)
+                if (a.has("sub_datasets")) a.optJSONArray("sub_datasets")?.let { arr -> p.subDatasets = (0 until arr.length()).map { arr.optString(it) } }
+                if (a.has("sub_lan")) { p.subLan = a.optBoolean("sub_lan"); if (p.subEnabled) LocalServer.start(this) }
+                if (a.has("media_auto_cache")) p.mediaAutoCache = a.optBoolean("media_auto_cache")
+                if (a.has("media_cache_mb")) p.mediaCacheMb = a.optInt("media_cache_mb", 2048)
                 if (a.has("receive_files")) p.receiveFiles = a.optBoolean("receive_files")
                 if (a.has("quick_dest")) p.quickDest = a.optString("quick_dest")
                 if (a.has("servers")) {
@@ -382,6 +392,12 @@ class SettingsActivity : LocalPageActivity() {
             "open_places" -> { main.post { startActivity(Intent(this, PlacesActivity::class.java)) }; ok() }
             "open_games" -> { main.post { startActivity(Intent(this, GamesActivity::class.java)) }; ok() }
             "open_camera" -> { main.post { startActivity(CameraActivity.intent(this)) }; ok() }
+            "sub_state" -> SubSync.state(this)
+            "sub_sync" -> { SyncWorker.now(this, "sub", manual = true); ok() }
+            "sub_open" -> {
+                main.post { startActivity(Intent(this, MainActivity::class.java).putExtra("offline", true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
+                ok()
+            }
             "screen_sync" -> { SyncWorker.now(this, "screen", manual = true); ok() }
             "usage_access" -> {
                 main.post {

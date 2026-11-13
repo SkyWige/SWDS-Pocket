@@ -75,4 +75,5 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraX")
     implementation("androidx.camera:camera-view:$cameraX")
     implementation("com.google.guava:guava:33.3.1-android")
+    implementation("androidx.lifecycle:lifecycle-service:2.8.7")    // камера в фоне — служба с жизненным циклом
 }

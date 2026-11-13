@@ -6,6 +6,7 @@
 <div class="sec-tabs" id="sec-tabs">
   <button data-s="link" class="on">📡 Связь</button>
   <button data-s="health">❤️ Здоровье</button>
+  <button data-s="sub">🖧 Саб-сервер</button>
   <button data-s="sync">🔄 Папки</button>
   <button data-s="notify">🔔 Уведомления</button>
   <button data-s="assist">🎙 Ассистент</button>
@@ -21,6 +22,26 @@
       <textarea id="servers" autocapitalize="off" spellcheck="false" style="min-height:80px"></textarea></label>
     <label class="f">Имя телефона<input type="text" id="dname"></label>
     <div class="btns"><button class="btn" id="find-srv">🔍 Найти в сети</button><button class="btn pri" id="save-srv">Сохранить</button></div>
+  </div>
+
+  <div class="card" data-sec="sub">
+    <h2>🖧 Саб-сервер на телефоне</h2>
+    <p class="muted" style="margin:0 0 8px">Телефон хранит актуальные задачи, покупки, календарь, заметки и траты и работает с ними без сети.
+      Всё сделанное офлайн уходит на основной SWDS при подключении; споры за одно и то же поле решает уровень сервера.</p>
+    <div class="row"><div class="t"><b>Включить саб-сервер</b><small id="sub-st">—</small></div><label class="sw"><input type="checkbox" id="sub-en"><span></span></label></div>
+    <label class="f">Уровень этого телефона
+      <select id="sub-level"><option value="1">1 — главный: его правки важнее сервера</option><option value="2">2 — обычный (рекомендуется)</option><option value="3">3 — подчинённый: сервер всегда главнее</option></select></label>
+    <label class="f">Держать на телефоне данные за, дней<input type="number" id="sub-win" min="1" max="3650"></label>
+    <div class="f">Что синхронизировать<div id="sub-ds" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div></div>
+    <div class="row"><div class="t"><b>Доступ из домашней сети</b><small id="sub-lan-st">Другие устройства могут открыть саб-сервер телефона по адресу и токену</small></div><label class="sw"><input type="checkbox" id="sub-lan"><span></span></label></div>
+    <div class="btns"><button class="btn" id="sub-open">📴 Открыть офлайн-режим</button><button class="btn pri" id="sub-sync">🔄 Синхронизировать</button></div>
+  </div>
+  <div class="card" data-sec="sub">
+    <h2>🎵 Музыка и видео на телефоне</h2>
+    <p class="muted" style="margin:0 0 8px">В медиатеке SWDS: ⋮ → «📥 На телефон». Скачанное играет из памяти телефона — без сети и без заиканий.</p>
+    <div class="row"><div class="t"><b>Сохранять то, что слушаю</b><small>Трек, который играл больше 30 секунд, сам сохраняется на телефон</small></div><label class="sw"><input type="checkbox" id="m-auto"><span></span></label></div>
+    <label class="f">Сколько места можно занять, МБ<input type="number" id="m-mb" min="100" step="100"></label>
+    <div class="row"><div class="t"><b id="m-count">—</b><small>Самое давнее удаляется первым, когда место кончается</small></div></div>
   </div>
 
   <div class="card" data-sec="health">
@@ -324,6 +345,33 @@ $("rscreen").onchange = async () => {
   await P.call("save", { screen_time_enabled: on }); render();
 };
 $("open-cam").onclick = () => P.call("open_camera");
+// ── саб-сервер ──
+const SUB_DS = [["tasks", "✅ Задачи"], ["shopping", "🛒 Покупки"], ["calendar", "📅 Календарь"], ["notes", "📝 Заметки"], ["wallet", "💳 Траты"]];
+function renderSub() {
+  $("sub-en").checked = !!st.sub_enabled; $("sub-level").value = String(st.sub_level || 2); $("sub-win").value = st.sub_window || 30;
+  const on = new Set(st.sub_datasets || []);
+  $("sub-ds").innerHTML = SUB_DS.map(([k, l]) => `<label class="chip"><input type="checkbox" data-sds="${k}"${on.has(k) ? " checked" : ""}> ${l}</label>`).join("");
+  $("sub-lan").checked = !!st.sub_lan;
+  $("sub-lan-st").textContent = st.sub_lan ? `http://<IP телефона>:${st.sub_port}/app/index.html?token=${st.sub_token}` : "Другие устройства могут открыть саб-сервер телефона по адресу и токену";
+  $("m-auto").checked = st.media_auto_cache !== false; $("m-mb").value = st.media_cache_mb || 2048;
+  P.call("sub_state").then(r => {
+    const x = r || {};
+    $("sub-st").textContent = !st.sub_enabled ? "Выключен — без сети откроется простой офлайн-экран" :
+      (x.server_online ? "🟢 " + (x.server_name || "сервер на связи") : "⚪ основной сервер не на связи") + (x.last_sync ? " · синхр. " + new Date(x.last_sync * 1000).toLocaleString("ru-RU") : " · ещё не синхронизировался") + (x.dirty ? ` · не отправлено: ${x.dirty}` : "") + (x.error ? " · ⚠ " + x.error : "");
+    $("m-count").textContent = `На телефоне: ${x.media || 0} файлов`;
+  }).catch(() => {});
+}
+const subSave = (o) => P.call("save", o).then(() => { st = P.state(); renderSub(); });
+$("sub-en").onchange = () => subSave({ sub_enabled: $("sub-en").checked });
+$("sub-level").onchange = () => subSave({ sub_level: +$("sub-level").value });
+$("sub-win").onchange = () => subSave({ sub_window: +$("sub-win").value });
+$("sub-ds").onchange = () => subSave({ sub_datasets: [...document.querySelectorAll("[data-sds]:checked")].map(x => x.dataset.sds) });
+$("sub-lan").onchange = () => subSave({ sub_lan: $("sub-lan").checked });
+$("m-auto").onchange = () => subSave({ media_auto_cache: $("m-auto").checked });
+$("m-mb").onchange = () => subSave({ media_cache_mb: +$("m-mb").value });
+$("sub-sync").onclick = () => { toast("🔄 Синхронизирую…"); P.call("sub_sync"); setTimeout(renderSub, 5000); };
+$("sub-open").onclick = () => P.call("sub_open");
+renderSub();
 $("cam-name").onchange = () => P.call("save", { camera_name: $("cam-name").value });
 $("rfiles").onchange = () => P.call("save", { receive_files: $("rfiles").checked });
 $("rloc").onchange = async () => {
